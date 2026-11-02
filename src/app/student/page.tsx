@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import Navbar from "@/components/shared/Navbar";
 import DashboardFooter from "@/components/shared/DashboardFooter";
 import {
@@ -9,6 +10,7 @@ import {
   Award,
   BookOpen,
   Briefcase,
+  Compass,
   Bot,
   FileText,
   CheckCircle2,
@@ -37,6 +39,32 @@ export default function StudentWorkspace() {
   const [confidence, setConfidence] = useState<"HIGH" | "MEDIUM" | "LOW">("HIGH");
   const [targetRole, setTargetRole] = useState("Full Stack Engineer");
   const [profileCompletion, setProfileCompletion] = useState(85);
+
+  interface EnrolledGoal {
+    id: string;
+    roleId: string;
+    roleTitle: string;
+    roleSlug: string;
+    isPrimary: boolean;
+    readinessScore: number;
+    status: string;
+  }
+
+  const [enrolledGoals, setEnrolledGoals] = useState<EnrolledGoal[]>([]);
+  const [selectedRoleSlug, setSelectedRoleSlug] = useState<string>("full-stack-engineer");
+  const [loadingReadiness, setLoadingReadiness] = useState(false);
+  const [skillsCompleted, setSkillsCompleted] = useState(3);
+  const [skillsRemaining, setSkillsRemaining] = useState(2);
+  const [interviewReadinessScore, setInterviewReadinessScore] = useState(75);
+  const [dynamicSkillGaps, setDynamicSkillGaps] = useState<Array<{
+    skillName: string;
+    category: string;
+    requiredLevel: number;
+    currentLevel: number;
+    source: string;
+    gap: number;
+    action: string;
+  }>>([]);
 
   // Roadmap tasks state
   const [tasks, setTasks] = useState([
@@ -133,6 +161,55 @@ export default function StudentWorkspace() {
     },
   ]);
 
+  useEffect(() => {
+    async function loadGoalsAndReadiness() {
+      try {
+        const res = await fetch("/api/v1/students/me/goals");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data?.goals && data.data.goals.length > 0) {
+            setEnrolledGoals(data.data.goals);
+            const primary = data.data.goals.find((g: EnrolledGoal) => g.isPrimary) || data.data.goals[0];
+            if (primary) {
+              setTargetRole(primary.roleTitle);
+              setSelectedRoleSlug(primary.roleSlug);
+              fetchReadinessForSlug(primary.roleSlug);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load goals", err);
+      }
+    }
+    loadGoalsAndReadiness();
+  }, []);
+
+  async function fetchReadinessForSlug(slug: string) {
+    setLoadingReadiness(true);
+    try {
+      const res = await fetch(`/api/v1/students/me/readiness?slug=${slug}`);
+      if (res.ok) {
+        const json = await res.json();
+        const r = json.data;
+        if (r) {
+          setReadinessScore(r.readinessScore ?? 78);
+          setConfidence(r.confidence || "HIGH");
+          if (r.role?.title) setTargetRole(r.role.title);
+          if (typeof r.skillsCompleted === "number") setSkillsCompleted(r.skillsCompleted);
+          if (typeof r.skillsRemaining === "number") setSkillsRemaining(r.skillsRemaining);
+          if (typeof r.interviewReadiness === "number") setInterviewReadinessScore(r.interviewReadiness);
+          if (r.skillGaps && r.skillGaps.length > 0) {
+            setDynamicSkillGaps(r.skillGaps);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load readiness", err);
+    } finally {
+      setLoadingReadiness(false);
+    }
+  }
+
   const toggleTask = (taskId: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
@@ -226,9 +303,41 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                 <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#71717A]">
                   <span>CGPA: <strong className="text-[#18181B]">8.65</strong> / 10.0</span>
                   <span>•</span>
-                  <span>Target Role: <strong className="text-[#4F46E5] font-semibold">{targetRole}</strong></span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Target Domain:</span>
+                    {enrolledGoals.length > 1 ? (
+                      <select
+                        value={selectedRoleSlug}
+                        onChange={(e) => {
+                          const slug = e.target.value;
+                          setSelectedRoleSlug(slug);
+                          const found = enrolledGoals.find((g) => g.roleSlug === slug);
+                          if (found) setTargetRole(found.roleTitle);
+                          fetchReadinessForSlug(slug);
+                        }}
+                        className="rounded-md border border-indigo-200 bg-indigo-50/70 px-2 py-0.5 text-xs font-semibold text-[#4F46E5] focus:outline-none cursor-pointer"
+                      >
+                        {enrolledGoals.map((g) => (
+                          <option key={g.id} value={g.roleSlug}>
+                            {g.roleTitle} {g.isPrimary ? "(Primary Target)" : "(Secondary Interest)"}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-semibold text-[#4F46E5] bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        {targetRole} (Primary)
+                      </span>
+                    )}
+                  </div>
                   <span>•</span>
-                  <span>Visibility: <strong className="text-emerald-700">Recruiters & Campus Cell</strong></span>
+                  <Link
+                    href="/student/domains"
+                    className="inline-flex items-center gap-1 text-[#4F46E5] font-semibold hover:underline bg-indigo-50/50 hover:bg-indigo-100 px-2 py-0.5 rounded transition-smooth"
+                  >
+                    <Compass className="h-3 w-3" />
+                    <span>Explore 12 Domains Hub</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
                 </div>
               </div>
             </div>
@@ -296,26 +405,26 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                   </span>
                 </div>
                 <p className="text-[11px] text-[#71717A] mt-2">
-                  Measured against verified assessments & projects (not hiring guarantee).
+                  Target: {targetRole} ({confidence} verified evidence level).
                 </p>
               </div>
 
               <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-subtle">
-                <span className="text-xs font-medium text-[#52525B]">Verified Assessments</span>
+                <span className="text-xs font-medium text-[#52525B]">Skills Competency</span>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-extrabold text-[#4F46E5] font-mono">100%</span>
-                  <span className="text-xs text-[#71717A]">React Architecture</span>
+                  <span className="text-3xl font-extrabold text-[#4F46E5] font-mono">{skillsCompleted}</span>
+                  <span className="text-xs text-[#71717A]">Mastered • {skillsRemaining} In Progress</span>
                 </div>
-                <p className="text-[11px] text-[#71717A] mt-2">Verified level 4 awarded based on score.</p>
+                <p className="text-[11px] text-[#71717A] mt-2">Verified level 3+ evidence established.</p>
               </div>
 
               <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-subtle">
-                <span className="text-xs font-medium text-[#52525B]">Project Evidence Score</span>
+                <span className="text-xs font-medium text-[#52525B]">Interview Readiness</span>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-extrabold text-teal-700 font-mono">80%</span>
-                  <span className="text-xs text-[#71717A]">GitHub Verified</span>
+                  <span className="text-3xl font-extrabold text-teal-700 font-mono">{interviewReadinessScore}%</span>
+                  <span className="text-xs text-[#71717A]">Simulated Score</span>
                 </div>
-                <p className="text-[11px] text-[#71717A] mt-2">Collaborative canvas app using WebSockets.</p>
+                <p className="text-[11px] text-[#71717A] mt-2">CS fundamentals & role system depth.</p>
               </div>
 
               <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-subtle">
@@ -338,13 +447,22 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                     Deterministic comparison between required role benchmarks and verified student evidence.
                   </p>
                 </div>
-                <button
-                  onClick={() => setActiveTab("roadmap")}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F46E5] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth"
-                >
-                  <span>Open Roadmap</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/student/domains?domain=${selectedRoleSlug}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E4E4E7] bg-white px-3 py-2 text-xs font-semibold text-[#18181B] hover:bg-[#F4F4F5] transition-smooth"
+                  >
+                    <Compass className="h-3.5 w-3.5 text-[#4F46E5]" />
+                    <span>Domain Curriculum</span>
+                  </Link>
+                  <button
+                    onClick={() => setActiveTab("roadmap")}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F46E5] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth"
+                  >
+                    <span>Open Roadmap</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 overflow-x-auto">
@@ -361,71 +479,105 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E4E4E7] text-[#18181B]">
-                    <tr>
-                      <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">React</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Frontend</td>
-                      <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
-                      <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">Level 4</td>
-                      <td className="py-3.5 px-4">
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
-                          Assessment Verified (100%)
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-emerald-700 font-semibold font-mono">0 (Proficient)</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Maintain through advanced practice.</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">TypeScript</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Frontend</td>
-                      <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-emerald-700">Level 3</td>
-                      <td className="py-3.5 px-4">
-                        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
-                          Project Backed
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-amber-600 font-semibold font-mono">-1 Level</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Review generics & type narrowing patterns.</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">Node.js & Express</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Backend</td>
-                      <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-emerald-700">Level 3</td>
-                      <td className="py-3.5 px-4">
-                        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
-                          Project Backed
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-amber-600 font-semibold font-mono">-1 Level</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Complete Milestone 1 Roadmap task.</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">SQL & Database Design</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Backend</td>
-                      <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-amber-600">Level 2</td>
-                      <td className="py-3.5 px-4">
-                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
-                          Self-Declared
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-red-600 font-semibold font-mono">-2 Levels</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Take the PostgreSQL assessment to establish proof.</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">System Design</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Architecture</td>
-                      <td className="py-3.5 px-4 font-mono font-medium">Level 3</td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-red-600">Level 0</td>
-                      <td className="py-3.5 px-4">
-                        <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-700 border border-red-200">
-                          Missing Evidence
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-red-600 font-semibold font-mono">-3 Levels</td>
-                      <td className="py-3.5 px-4 text-[#52525B]">Follow Roadmap Milestone 3 on distributed scaling.</td>
-                    </tr>
+                    {dynamicSkillGaps.length > 0 ? (
+                      dynamicSkillGaps.map((sg, idx) => (
+                        <tr key={idx}>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">{sg.skillName}</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">{sg.category}</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level {sg.requiredLevel}</td>
+                          <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">Level {sg.currentLevel}</td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+                                sg.currentLevel >= sg.requiredLevel
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : sg.currentLevel > 0
+                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                  : "bg-red-50 text-red-700 border-red-200"
+                              }`}
+                            >
+                              {sg.source}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-semibold">
+                            {sg.gap === 0 ? (
+                              <span className="text-emerald-700">0 (Proficient)</span>
+                            ) : (
+                              <span className="text-amber-600">-{sg.gap} {sg.gap === 1 ? "Level" : "Levels"}</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-[#52525B]">{sg.action}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">React</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Frontend</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
+                          <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">Level 4</td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                              Assessment Verified (100%)
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-emerald-700 font-semibold font-mono">0 (Proficient)</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Maintain through advanced practice.</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">TypeScript</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Frontend</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
+                          <td className="py-3.5 px-4 font-mono font-medium text-emerald-700">Level 3</td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                              Project Backed
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-amber-600 font-semibold font-mono">-1 Level</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Review generics & type narrowing patterns.</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">Node.js & Express</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Backend</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
+                          <td className="py-3.5 px-4 font-mono font-medium text-emerald-700">Level 3</td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200">
+                              Project Backed
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-amber-600 font-semibold font-mono">-1 Level</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Complete Milestone 1 Roadmap task.</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">SQL & Database Design</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Backend</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level 4</td>
+                          <td className="py-3.5 px-4 font-mono font-medium text-amber-600">Level 2</td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                              Self-Declared
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-red-600 font-semibold font-mono">-2 Levels</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Take the PostgreSQL assessment to establish proof.</td>
+                        </tr>
+                        <tr>
+                          <td className="py-3.5 px-4 font-semibold text-[#4F46E5]">System Design</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Architecture</td>
+                          <td className="py-3.5 px-4 font-mono font-medium">Level 3</td>
+                          <td className="py-3.5 px-4 font-mono font-medium text-red-600">Level 0</td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-700 border border-red-200">
+                              Missing Evidence
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-red-600 font-semibold font-mono">-3 Levels</td>
+                          <td className="py-3.5 px-4 text-[#52525B]">Follow Roadmap Milestone 3 on distributed scaling.</td>
+                        </tr>
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>

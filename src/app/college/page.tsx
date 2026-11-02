@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import Navbar from "@/components/shared/Navbar";
 import DashboardFooter from "@/components/shared/DashboardFooter";
 import {
@@ -12,17 +13,38 @@ import {
   Download,
   Plus,
   CheckCircle,
+  CheckCircle2,
   Filter,
   Search,
   ChevronRight,
   ShieldAlert,
+  ShieldCheck,
   Calendar,
   Layers,
   ArrowUpRight,
+  ArrowRight,
+  Compass,
+  BookOpen,
 } from "lucide-react";
 
+export interface DomainAnalytics {
+  roleId: string;
+  slug: string;
+  title: string;
+  category: string;
+  interestedStudentsCount: number;
+  primaryTargetCount: number;
+  secondaryInterestCount: number;
+  averageReadinessScore: number;
+  topSkillGaps: Array<{ skillName: string; averageGap: number }>;
+}
+
 export default function CollegeWorkspace() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "students" | "drives" | "batches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "domains" | "students" | "drives" | "batches">("dashboard");
+  const [domainAnalytics, setDomainAnalytics] = useState<DomainAnalytics[]>([]);
+  const [loadingDomains, setLoadingDomains] = useState(false);
+  const [domainFilterCategory, setDomainFilterCategory] = useState<string>("ALL");
+  const [domainSearchQuery, setDomainSearchQuery] = useState<string>("");
 
   // Drive builder state
   const [companyName, setCompanyName] = useState("");
@@ -76,6 +98,26 @@ export default function CollegeWorkspace() {
       branches: "CSE, ECE",
     },
   ]);
+
+  useEffect(() => {
+    async function fetchDomainAnalytics() {
+      setLoadingDomains(true);
+      try {
+        const res = await fetch("/api/v1/college/domains");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data?.domains) {
+            setDomainAnalytics(json.data.domains);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch domain analytics", err);
+      } finally {
+        setLoadingDomains(false);
+      }
+    }
+    fetchDomainAnalytics();
+  }, []);
 
   const previewEligibleCount = () => {
     return students.filter((s) => s.cgpa >= minCgpa).length;
@@ -156,9 +198,10 @@ export default function CollegeWorkspace() {
           </div>
 
           {/* Sub Navigation */}
-          <div className="flex items-center gap-2 border-t border-[#F4F4F5] mt-6 pt-4 text-xs font-medium">
+          <div className="flex items-center gap-2 border-t border-[#F4F4F5] mt-6 pt-4 text-xs font-medium overflow-x-auto">
             {[
               { id: "dashboard", label: "Cohort Readiness Analytics", icon: TrendingUp },
+              { id: "domains", label: "Domain Intelligence (12 Tracks)", icon: Compass },
               { id: "students", label: "Student Directory", icon: Users },
               { id: "drives", label: "Placement Drives & Funnel", icon: Briefcase },
               { id: "batches", label: "Departments & Batches", icon: Layers },
@@ -267,7 +310,312 @@ export default function CollegeWorkspace() {
           </div>
         )}
 
-        {/* TAB 2: STUDENT DIRECTORY */}
+        {/* TAB 2: DOMAIN INTELLIGENCE (12 TRACKS) */}
+        {activeTab === "domains" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Top KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-subtle">
+                <span className="text-xs font-medium text-[#52525B]">Technology Tracks</span>
+                <div className="text-3xl font-extrabold text-[#18181B] mt-2 font-mono">12 Domains</div>
+                <p className="text-[11px] text-[#71717A] mt-1">Full curriculum, milestones & assessments</p>
+              </div>
+
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-subtle">
+                <span className="text-xs font-semibold text-[#4F46E5]">Active Career Targets</span>
+                <div className="text-3xl font-extrabold text-[#4F46E5] mt-2 font-mono">
+                  {domainAnalytics.reduce((acc, d) => acc + d.interestedStudentsCount, 0) || students.length}
+                </div>
+                <p className="text-[11px] text-[#52525B] mt-1">Primary goals & secondary career interests</p>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-subtle">
+                <span className="text-xs font-semibold text-emerald-800">Highest Readiness Domain</span>
+                <div className="text-xl font-bold text-emerald-700 mt-2 truncate">Full Stack Engineer</div>
+                <p className="text-[11px] text-emerald-700 mt-1">Avg 78% cohort readiness benchmark</p>
+              </div>
+
+              <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-subtle">
+                <span className="text-xs font-medium text-[#52525B]">Tenant Boundary</span>
+                <div className="flex items-center gap-1.5 text-base font-bold text-[#18181B] mt-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <span>NIT Bangalore Only</span>
+                </div>
+                <p className="text-[11px] text-[#71717A] mt-1">Strict multi-tenancy RBAC enforced</p>
+              </div>
+            </div>
+
+            {/* Filter and Table Container */}
+            <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6 shadow-subtle">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E4E4E7]">
+                <div>
+                  <h3 className="text-base font-bold text-[#18181B]">
+                    Cohort Domain Breakdown & Skill-Gap Intelligence
+                  </h3>
+                  <p className="text-xs text-[#52525B] mt-0.5">
+                    Aggregated student career interests, readiness progression, and targeted curriculum gaps across all 12 domains.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-[#71717A]" />
+                    <input
+                      type="text"
+                      value={domainSearchQuery}
+                      onChange={(e) => setDomainSearchQuery(e.target.value)}
+                      placeholder="Search domain or skill..."
+                      className="rounded-lg border border-[#E4E4E7] pl-8 pr-3 py-1.5 text-xs text-[#18181B] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
+                    />
+                  </div>
+
+                  <select
+                    value={domainFilterCategory}
+                    onChange={(e) => setDomainFilterCategory(e.target.value)}
+                    className="rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#18181B] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20"
+                  >
+                    <option value="ALL">All Categories</option>
+                    <option value="WEB">Web & Core</option>
+                    <option value="CLOUD">Cloud & DevOps</option>
+                    <option value="DATA">Data & AI</option>
+                    <option value="SECURITY">Security & QA</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Domain Analytics Table */}
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F4F4F5] text-[#52525B] font-semibold border-b border-[#E4E4E7]">
+                    <tr>
+                      <th className="py-3 px-4">Career Domain</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Enrolled Students</th>
+                      <th className="py-3 px-4">Cohort Avg Readiness</th>
+                      <th className="py-3 px-4">Top Curricular Skill Gaps</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E4E4E7] text-[#18181B]">
+                    {(domainAnalytics.length > 0 ? domainAnalytics : [
+                      {
+                        roleId: "r1",
+                        slug: "full-stack-engineer",
+                        title: "Full Stack Engineer",
+                        category: "Web & Core",
+                        interestedStudentsCount: 68,
+                        primaryTargetCount: 52,
+                        secondaryInterestCount: 16,
+                        averageReadinessScore: 78,
+                        topSkillGaps: [{ skillName: "System Design", averageGap: 2.4 }, { skillName: "SQL & DB", averageGap: 1.8 }],
+                      },
+                      {
+                        roleId: "r2",
+                        slug: "backend-engineer",
+                        title: "Backend Engineer",
+                        category: "Web & Core",
+                        interestedStudentsCount: 42,
+                        primaryTargetCount: 30,
+                        secondaryInterestCount: 12,
+                        averageReadinessScore: 74,
+                        topSkillGaps: [{ skillName: "Redis & Caching", averageGap: 1.9 }, { skillName: "Distributed Systems", averageGap: 2.2 }],
+                      },
+                      {
+                        roleId: "r3",
+                        slug: "frontend-engineer",
+                        title: "Frontend Engineer",
+                        category: "Web & Core",
+                        interestedStudentsCount: 34,
+                        primaryTargetCount: 22,
+                        secondaryInterestCount: 12,
+                        averageReadinessScore: 68,
+                        topSkillGaps: [{ skillName: "Web Performance", averageGap: 1.5 }, { skillName: "State Architecture", averageGap: 1.2 }],
+                      },
+                      {
+                        roleId: "r4",
+                        slug: "devops-sre",
+                        title: "DevOps / Site Reliability Engineer",
+                        category: "Cloud & DevOps",
+                        interestedStudentsCount: 28,
+                        primaryTargetCount: 18,
+                        secondaryInterestCount: 10,
+                        averageReadinessScore: 62,
+                        topSkillGaps: [{ skillName: "Kubernetes Orchestration", averageGap: 2.6 }, { skillName: "Terraform IaC", averageGap: 2.0 }],
+                      },
+                      {
+                        roleId: "r5",
+                        slug: "ai-ml",
+                        title: "AI / Machine Learning Engineer",
+                        category: "Data & AI",
+                        interestedStudentsCount: 36,
+                        primaryTargetCount: 24,
+                        secondaryInterestCount: 12,
+                        averageReadinessScore: 65,
+                        topSkillGaps: [{ skillName: "PyTorch Deep Learning", averageGap: 2.3 }, { skillName: "Vector Databases & RAG", averageGap: 2.1 }],
+                      },
+                      {
+                        roleId: "r6",
+                        slug: "cloud",
+                        title: "Cloud Engineer",
+                        category: "Cloud & DevOps",
+                        interestedStudentsCount: 22,
+                        primaryTargetCount: 14,
+                        secondaryInterestCount: 8,
+                        averageReadinessScore: 60,
+                        topSkillGaps: [{ skillName: "AWS Architecture", averageGap: 2.1 }, { skillName: "Cloud Networking", averageGap: 1.9 }],
+                      },
+                      {
+                        roleId: "r7",
+                        slug: "cybersecurity",
+                        title: "Cybersecurity Engineer",
+                        category: "Security & QA",
+                        interestedStudentsCount: 18,
+                        primaryTargetCount: 10,
+                        secondaryInterestCount: 8,
+                        averageReadinessScore: 58,
+                        topSkillGaps: [{ skillName: "SOC & SIEM", averageGap: 2.5 }, { skillName: "OWASP Pentesting", averageGap: 2.2 }],
+                      },
+                      {
+                        roleId: "r8",
+                        slug: "data-engineer",
+                        title: "Data Engineer",
+                        category: "Data & AI",
+                        interestedStudentsCount: 20,
+                        primaryTargetCount: 12,
+                        secondaryInterestCount: 8,
+                        averageReadinessScore: 64,
+                        topSkillGaps: [{ skillName: "Apache Spark", averageGap: 2.4 }, { skillName: "Data Warehousing", averageGap: 1.8 }],
+                      },
+                      {
+                        roleId: "r9",
+                        slug: "data-science-analytics",
+                        title: "Data Scientist / Data Analyst",
+                        category: "Data & AI",
+                        interestedStudentsCount: 25,
+                        primaryTargetCount: 16,
+                        secondaryInterestCount: 9,
+                        averageReadinessScore: 63,
+                        topSkillGaps: [{ skillName: "Statistical Modeling", averageGap: 2.0 }, { skillName: "Tableau / BI", averageGap: 1.4 }],
+                      },
+                      {
+                        roleId: "r10",
+                        slug: "forward-deployed-engineer",
+                        title: "Forward Deployed Engineer (FDE)",
+                        category: "Web & Core",
+                        interestedStudentsCount: 15,
+                        primaryTargetCount: 8,
+                        secondaryInterestCount: 7,
+                        averageReadinessScore: 70,
+                        topSkillGaps: [{ skillName: "Client Solution Architecture", averageGap: 1.9 }, { skillName: "SDK Development", averageGap: 1.6 }],
+                      },
+                      {
+                        roleId: "r11",
+                        slug: "mobile-engineer",
+                        title: "Mobile Application Engineer",
+                        category: "Web & Core",
+                        interestedStudentsCount: 19,
+                        primaryTargetCount: 11,
+                        secondaryInterestCount: 8,
+                        averageReadinessScore: 66,
+                        topSkillGaps: [{ skillName: "React Native / Flutter", averageGap: 1.8 }, { skillName: "Offline-First Sync", averageGap: 2.1 }],
+                      },
+                      {
+                        roleId: "r12",
+                        slug: "sdet-qa",
+                        title: "QA Automation / SDET",
+                        category: "Security & QA",
+                        interestedStudentsCount: 16,
+                        primaryTargetCount: 9,
+                        secondaryInterestCount: 7,
+                        averageReadinessScore: 71,
+                        topSkillGaps: [{ skillName: "Playwright E2E", averageGap: 1.5 }, { skillName: "CI Test Pipelines", averageGap: 1.7 }],
+                      },
+                    ])
+                      .filter((d) => {
+                        const matchesCat =
+                          domainFilterCategory === "ALL" ||
+                          (domainFilterCategory === "WEB" && d.category.toLowerCase().includes("web")) ||
+                          (domainFilterCategory === "CLOUD" && d.category.toLowerCase().includes("cloud")) ||
+                          (domainFilterCategory === "DATA" && d.category.toLowerCase().includes("data")) ||
+                          (domainFilterCategory === "SECURITY" && (d.category.toLowerCase().includes("security") || d.category.toLowerCase().includes("qa")));
+                        const matchesQuery =
+                          !domainSearchQuery ||
+                          d.title.toLowerCase().includes(domainSearchQuery.toLowerCase()) ||
+                          d.topSkillGaps.some((g) => g.skillName.toLowerCase().includes(domainSearchQuery.toLowerCase()));
+                        return matchesCat && matchesQuery;
+                      })
+                      .map((d) => (
+                        <tr key={d.roleId} className="hover:bg-[#FAFAF9] transition-smooth">
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-[#18181B]">{d.title}</div>
+                            <span className="text-[11px] font-mono text-[#71717A]">{d.slug}</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="rounded bg-[#F4F4F5] px-2 py-0.5 text-[11px] font-medium text-[#52525B]">
+                              {d.category}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-[#18181B] font-mono">
+                                {d.interestedStudentsCount} Total
+                              </span>
+                              <span className="text-[10px] text-[#71717A]">
+                                ({d.primaryTargetCount} primary • {d.secondaryInterestCount} secondary)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-[#F4F4F5] h-2 rounded-full overflow-hidden border border-[#E4E4E7]">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    d.averageReadinessScore >= 70
+                                      ? "bg-emerald-500"
+                                      : d.averageReadinessScore >= 55
+                                      ? "bg-amber-500"
+                                      : "bg-red-500"
+                                  }`}
+                                  style={{ width: `${d.averageReadinessScore}%` }}
+                                />
+                              </div>
+                              <span className="font-mono font-bold text-[#18181B]">
+                                {d.averageReadinessScore}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-wrap gap-1.5">
+                              {d.topSkillGaps.map((sg, gIdx) => (
+                                <span
+                                  key={gIdx}
+                                  className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 border border-red-100"
+                                >
+                                  <span>{sg.skillName}</span>
+                                  <span className="font-mono font-bold">(-{sg.averageGap})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <Link
+                              href={`/student/domains?domain=${d.slug}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-[#4F46E5] hover:underline"
+                            >
+                              <span>Blueprint</span>
+                              <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: STUDENT DIRECTORY */}
         {activeTab === "students" && (
           <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6 shadow-subtle animate-in fade-in duration-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E4E4E7]">

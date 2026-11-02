@@ -1,14 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DOMAIN_CATALOG } from "../src/modules/career/domainCatalog";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding StepBridge database...");
+  console.log("Seeding StepBridge database with full 12-domain career ecosystem...");
 
   // 1. Super Admin
   const adminPassword = await bcrypt.hash("Admin@StepBridge2026!", 10);
-  const superAdmin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: "admin@stepbridge.ai" },
     update: {},
     create: {
@@ -21,185 +22,159 @@ async function main() {
     },
   });
 
-  // 2. Roles & Taxonomy
-  const roleFrontend = await prisma.role.upsert({
-    where: { title: "Frontend Engineer" },
-    update: {},
-    create: {
-      title: "Frontend Engineer",
-      description: "Builds modern, responsive, and accessible web user interfaces with React, Next.js, TypeScript, and modern CSS architectures.",
-      category: "Engineering",
-      active: true,
-    },
-  });
-
-  const roleBackend = await prisma.role.upsert({
-    where: { title: "Backend Engineer" },
-    update: {},
-    create: {
-      title: "Backend Engineer",
-      description: "Architects high-performance APIs, database models, caching strategies, and secure services using Node.js, Python, and PostgreSQL.",
-      category: "Engineering",
-      active: true,
-    },
-  });
-
-  const roleFullStack = await prisma.role.upsert({
-    where: { title: "Full Stack Engineer" },
-    update: {},
-    create: {
-      title: "Full Stack Engineer",
-      description: "Delivers complete end-to-end applications bridging frontend experiences with robust backend microservices and databases.",
-      category: "Engineering",
-      active: true,
-    },
-  });
-
-  const roleDevOps = await prisma.role.upsert({
-    where: { title: "DevOps & Cloud Engineer" },
-    update: {},
-    create: {
-      title: "DevOps & Cloud Engineer",
-      description: "Automates CI/CD pipelines, provisions cloud infrastructure, and manages containerized workloads with Docker, Kubernetes, and AWS.",
-      category: "Cloud & Infrastructure",
-      active: true,
-    },
-  });
-
-  // 3. Core Skills
-  const skillsData = [
+  // 2. Seed All Skills from Catalog & Core Foundation
+  const baseSkills = [
     { canonicalName: "React", category: "Frontend", aliases: JSON.stringify(["React.js", "ReactJS", "Next.js"]) },
     { canonicalName: "TypeScript", category: "Frontend", aliases: JSON.stringify(["TS", "JavaScript"]) },
     { canonicalName: "Tailwind CSS", category: "Frontend", aliases: JSON.stringify(["Tailwind", "CSS3"]) },
     { canonicalName: "Node.js", category: "Backend", aliases: JSON.stringify(["Node", "Express", "NestJS"]) },
-    { canonicalName: "SQL & Databases", category: "Backend", aliases: JSON.stringify(["PostgreSQL", "MySQL", "Prisma"]) },
-    { canonicalName: "REST API Design", category: "Backend", aliases: JSON.stringify(["REST", "API Development"]) },
-    { canonicalName: "Data Structures & Algorithms", category: "Computer Science", aliases: JSON.stringify(["DSA", "Algorithms"]) },
-    { canonicalName: "Docker & Containers", category: "DevOps", aliases: JSON.stringify(["Docker", "Containers"]) },
+    { canonicalName: "Python", category: "Backend", aliases: JSON.stringify(["Py", "Python3", "FastAPI"]) },
+    { canonicalName: "SQL & Databases", category: "Backend", aliases: JSON.stringify(["PostgreSQL", "MySQL", "Prisma", "SQL"]) },
+    { canonicalName: "REST API Design", category: "Backend", aliases: JSON.stringify(["REST", "API Development", "HTTP"]) },
+    { canonicalName: "Data Structures & Algorithms", category: "Computer Science", aliases: JSON.stringify(["DSA", "Algorithms", "Problem Solving"]) },
+    { canonicalName: "Docker & Containers", category: "DevOps", aliases: JSON.stringify(["Docker", "Containers", "Podman"]) },
     { canonicalName: "Git & Version Control", category: "DevOps", aliases: JSON.stringify(["Git", "GitHub", "CI/CD"]) },
-    { canonicalName: "System Design", category: "Computer Science", aliases: JSON.stringify(["Architecture", "Scalability"]) },
+    { canonicalName: "System Design", category: "Computer Science", aliases: JSON.stringify(["Architecture", "Scalability", "High Availability"]) },
   ];
 
   const skillMap: Record<string, string> = {};
-  for (const s of skillsData) {
-    const skill = await prisma.skill.upsert({
+
+  for (const s of baseSkills) {
+    const record = await prisma.skill.upsert({
       where: { canonicalName: s.canonicalName },
-      update: {},
+      update: { category: s.category, aliases: s.aliases },
       create: s,
     });
-    skillMap[s.canonicalName] = skill.id;
+    skillMap[s.canonicalName] = record.id;
   }
 
-  // 4. Role Skills mapping
-  const roleSkillMappings = [
-    // Full Stack Engineer
-    { roleId: roleFullStack.id, skillId: skillMap["React"], level: 4, weight: 5 },
-    { roleId: roleFullStack.id, skillId: skillMap["TypeScript"], level: 4, weight: 5 },
-    { roleId: roleFullStack.id, skillId: skillMap["Node.js"], level: 4, weight: 5 },
-    { roleId: roleFullStack.id, skillId: skillMap["SQL & Databases"], level: 3, weight: 4 },
-    { roleId: roleFullStack.id, skillId: skillMap["REST API Design"], level: 4, weight: 4 },
-    { roleId: roleFullStack.id, skillId: skillMap["Git & Version Control"], level: 3, weight: 3 },
-    // Frontend Engineer
-    { roleId: roleFrontend.id, skillId: skillMap["React"], level: 4, weight: 5 },
-    { roleId: roleFrontend.id, skillId: skillMap["TypeScript"], level: 4, weight: 5 },
-    { roleId: roleFrontend.id, skillId: skillMap["Tailwind CSS"], level: 4, weight: 4 },
-    { roleId: roleFrontend.id, skillId: skillMap["REST API Design"], level: 3, weight: 3 },
-    // Backend Engineer
-    { roleId: roleBackend.id, skillId: skillMap["Node.js"], level: 4, weight: 5 },
-    { roleId: roleBackend.id, skillId: skillMap["SQL & Databases"], level: 4, weight: 5 },
-    { roleId: roleBackend.id, skillId: skillMap["REST API Design"], level: 4, weight: 5 },
-    { roleId: roleBackend.id, skillId: skillMap["System Design"], level: 3, weight: 4 },
-    { roleId: roleBackend.id, skillId: skillMap["Docker & Containers"], level: 3, weight: 3 },
-  ];
+  // Ensure all skills mentioned across all 12 domains exist
+  for (const domain of DOMAIN_CATALOG) {
+    for (const sk of domain.skills) {
+      if (!skillMap[sk.skillName]) {
+        const record = await prisma.skill.upsert({
+          where: { canonicalName: sk.skillName },
+          update: { category: sk.category },
+          create: {
+            canonicalName: sk.skillName,
+            category: sk.category,
+            active: true,
+          },
+        });
+        skillMap[sk.skillName] = record.id;
+      }
+    }
+  }
 
-  for (const rsm of roleSkillMappings) {
-    await prisma.roleSkill.upsert({
-      where: { roleId_skillId: { roleId: rsm.roleId, skillId: rsm.skillId } },
-      update: {},
+  // 3. Seed All 12 Roles / Domains from DOMAIN_CATALOG
+  const roleMap: Record<string, string> = {};
+
+  for (const domain of DOMAIN_CATALOG) {
+    const roleRecord = await prisma.role.upsert({
+      where: { title: domain.title },
+      update: {
+        slug: domain.slug,
+        description: domain.description,
+        category: domain.category,
+        overview: domain.overview,
+        careerOpportunities: JSON.stringify(domain.careerOpportunities),
+        coreCsSubjects: JSON.stringify(domain.coreCsSubjects),
+        keyConcepts: JSON.stringify(domain.keyConcepts),
+        recommendedTools: JSON.stringify(domain.recommendedTools),
+        portfolioExpectations: domain.portfolioExpectations,
+        interviewTopics: JSON.stringify(domain.interviewTopics),
+        projectIdeas: JSON.stringify(domain.projects),
+        entryLevelGuidance: domain.entryLevelGuidance,
+        milestoneOutcomes: JSON.stringify(domain.milestoneOutcomes),
+        active: true,
+      },
       create: {
-        roleId: rsm.roleId,
-        skillId: rsm.skillId,
-        requiredLevel: rsm.level,
-        importanceWeight: rsm.weight,
+        slug: domain.slug,
+        title: domain.title,
+        description: domain.description,
+        category: domain.category,
+        overview: domain.overview,
+        careerOpportunities: JSON.stringify(domain.careerOpportunities),
+        coreCsSubjects: JSON.stringify(domain.coreCsSubjects),
+        keyConcepts: JSON.stringify(domain.keyConcepts),
+        recommendedTools: JSON.stringify(domain.recommendedTools),
+        portfolioExpectations: domain.portfolioExpectations,
+        interviewTopics: JSON.stringify(domain.interviewTopics),
+        projectIdeas: JSON.stringify(domain.projects),
+        entryLevelGuidance: domain.entryLevelGuidance,
+        milestoneOutcomes: JSON.stringify(domain.milestoneOutcomes),
+        active: true,
       },
     });
+
+    roleMap[domain.slug] = roleRecord.id;
+    roleMap[domain.title] = roleRecord.id;
+
+    // Map Domain Skills
+    for (const sk of domain.skills) {
+      const skillId = skillMap[sk.skillName];
+      if (skillId) {
+        await prisma.roleSkill.upsert({
+          where: { roleId_skillId: { roleId: roleRecord.id, skillId } },
+          update: {
+            requiredLevel: sk.requiredLevel,
+            importanceWeight: sk.importanceWeight,
+          },
+          create: {
+            roleId: roleRecord.id,
+            skillId,
+            requiredLevel: sk.requiredLevel,
+            importanceWeight: sk.importanceWeight,
+          },
+        });
+      }
+    }
+
+    // Seed Assessment for each domain if questions exist
+    if (domain.questions && domain.questions.length > 0) {
+      let assessment = await prisma.assessment.findFirst({
+        where: { topic: domain.title },
+      });
+
+      if (!assessment) {
+        assessment = await prisma.assessment.create({
+          data: {
+            title: `${domain.title} Assessment`,
+            topic: domain.title,
+            durationMinutes: 20,
+            questionCount: domain.questions.length,
+            status: "ACTIVE",
+          },
+        });
+      }
+
+      for (const q of domain.questions) {
+        const skillId = skillMap[q.skillName] || skillMap["System Design"] || skillMap["React"] || skillMap["Python"];
+        if (skillId) {
+          const existingQuestion = await prisma.assessmentQuestion.findFirst({
+            where: { assessmentId: assessment.id, question: q.question },
+          });
+
+          if (!existingQuestion) {
+            await prisma.assessmentQuestion.create({
+              data: {
+                assessmentId: assessment.id,
+                skillId,
+                difficulty: q.difficulty,
+                question: q.question,
+                options: JSON.stringify(q.options),
+                answerKey: q.answerKey,
+                explanation: q.explanation,
+                status: "ACTIVE",
+              },
+            });
+          }
+        }
+      }
+    }
   }
 
-  // 5. Skill Assessments and Questions
-  const assessmentReact = await prisma.assessment.create({
-    data: {
-      title: "React & Modern UI Architecture",
-      topic: "React",
-      durationMinutes: 15,
-      questionCount: 4,
-      status: "ACTIVE",
-    },
-  });
-
-  const reactQuestions = [
-    {
-      assessmentId: assessmentReact.id,
-      skillId: skillMap["React"],
-      difficulty: "BEGINNER",
-      question: "What is the primary purpose of the React `useEffect` dependency array?",
-      options: JSON.stringify([
-        "To declare which state variables can be read inside the effect",
-        "To specify which values the effect relies upon and trigger re-execution when they change",
-        "To render JSX asynchronously in the background",
-        "To prevent any component rerenders permanently",
-      ]),
-      answerKey: 1,
-      explanation: "React compares each dependency with its previous value using Object.is. If any dependency changes, the effect runs again.",
-    },
-    {
-      assessmentId: assessmentReact.id,
-      skillId: skillMap["React"],
-      difficulty: "INTERMEDIATE",
-      question: "In React 18/19 Server Components, what is true regarding client-side state hooks like `useState`?",
-      options: JSON.stringify([
-        "Server Components can use useState if marked with async/await",
-        "Server Components cannot use useState or client lifecycle hooks; they must be in Client Components with 'use client'",
-        "useState is automatically replaced with useReducer on the server",
-        "Server Components store state in server sessions across reloads",
-      ]),
-      answerKey: 1,
-      explanation: "Server components execute exclusively on the server and do not retain client interactive state like useState.",
-    },
-    {
-      assessmentId: assessmentReact.id,
-      skillId: skillMap["React"],
-      difficulty: "INTERMEDIATE",
-      question: "When should you prefer `useCallback` over regular inline functions?",
-      options: JSON.stringify([
-        "For every single function defined in every component",
-        "When passing callbacks to optimized child components that rely on reference equality (e.g. React.memo) to prevent unnecessary re-renders",
-        "Only when making HTTP fetch calls",
-        "To convert synchronous code to run inside web workers",
-      ]),
-      answerKey: 1,
-      explanation: "useCallback caches function definitions between renders to maintain referential identity when passed to memoized children.",
-    },
-    {
-      assessmentId: assessmentReact.id,
-      skillId: skillMap["React"],
-      difficulty: "ADVANCED",
-      question: "What is the core benefit of optimistic UI updates in interactive applications?",
-      options: JSON.stringify([
-        "It eliminates all backend database validation",
-        "It provides immediate user feedback by rendering the expected state before the server confirms the mutation",
-        "It automatically retries failed HTTP requests indefinitely",
-        "It replaces the need for server-side error handling",
-      ]),
-      answerKey: 1,
-      explanation: "Optimistic UI immediately reflects user actions, creating a perceived instant response while reconciling in the background.",
-    },
-  ];
-
-  for (const q of reactQuestions) {
-    await prisma.assessmentQuestion.create({ data: q });
-  }
-
-  // 6. Pilot Institution: NIT Bangalore
+  // 4. Pilot Institution: NIT Bangalore
   let institution = await prisma.institution.findFirst({ where: { domain: "nitb.ac.in" } });
   if (!institution) {
     institution = await prisma.institution.create({
@@ -287,7 +262,7 @@ async function main() {
     },
   });
 
-  // 7. Verified Company: TechCorp Innovations
+  // 5. Verified Company: TechCorp Innovations
   let company = await prisma.company.findFirst({ where: { domain: "techcorp-innovations.io" } });
   if (!company) {
     company = await prisma.company.create({
@@ -327,7 +302,7 @@ async function main() {
     },
   });
 
-  // 8. Published Opportunities
+  // 6. Published Opportunity
   let opportunity1 = await prisma.opportunity.findFirst({ where: { title: "Junior Full Stack Engineer" } });
   if (!opportunity1) {
     opportunity1 = await prisma.opportunity.create({
@@ -338,7 +313,7 @@ async function main() {
         description: "Join our core payments experience team building reactive frontend dashboards and resilient backend APIs with React, TypeScript, and Node.js.",
         location: "Bengaluru (Hybrid)",
         salaryRange: "10 - 14 LPA",
-        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days ahead
+        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         status: "PUBLISHED",
       },
     });
@@ -360,7 +335,7 @@ async function main() {
     });
   }
 
-  // 9. Placement Drive
+  // 7. Placement Drive
   const existingDrive = await prisma.placementDrive.findFirst({ where: { institutionId: institution.id, roleTitle: "Campus Associate Software Engineer" } });
   if (!existingDrive) {
     await prisma.placementDrive.create({
@@ -378,7 +353,7 @@ async function main() {
     });
   }
 
-  // 10. Sample Student with Complete Profile & Evidence
+  // 8. Sample Student with Complete Profile & Evidence
   const studentPassword = await bcrypt.hash("Student2026!", 10);
   const studentUser = await prisma.user.upsert({
     where: { email: "aarav.patel@nitb.ac.in" },
@@ -422,14 +397,17 @@ async function main() {
       },
     });
 
-    await prisma.careerGoal.create({
-      data: {
-        studentProfileId: studentProfile.id,
-        roleId: roleFullStack.id,
-        isPrimary: true,
-        status: "ACTIVE",
-      },
-    });
+    const fullStackRoleId = roleMap["Full Stack Engineer"];
+    if (fullStackRoleId) {
+      await prisma.careerGoal.create({
+        data: {
+          studentProfileId: studentProfile.id,
+          roleId: fullStackRoleId,
+          isPrimary: true,
+          status: "ACTIVE",
+        },
+      });
+    }
 
     await prisma.studentSkill.createMany({
       data: [
@@ -453,7 +431,7 @@ async function main() {
     });
   }
 
-  console.log("Database seeded successfully with initial users, taxonomy, institution, company, and sample student!");
+  console.log("Database seeded successfully with all 12 domains, skills, assessments, and sample student!");
 }
 
 main()

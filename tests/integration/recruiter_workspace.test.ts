@@ -58,22 +58,24 @@ describe("Phase 6: Recruiter Workspace Tests", () => {
   });
 
   it("moves applicant through hiring stages and logs audit transitions", async () => {
-    // Find or create an application for testJobId
-    let app = await prisma.application.findFirst({
-      where: { opportunityId: testJobId },
-    });
-
-    if (!app) {
-      const student = await prisma.studentProfile.findFirst();
-      app = await prisma.application.create({
-        data: {
+    const student = await prisma.studentProfile.findFirst();
+    const app = await prisma.application.upsert({
+      where: {
+        opportunityId_studentId: {
           opportunityId: testJobId,
           studentId: student!.id,
-          stage: "APPLIED",
-          profileSnapshot: JSON.stringify({ skills: [{ skill: "React" }] }),
         },
-      });
-    }
+      },
+      create: {
+        opportunityId: testJobId,
+        studentId: student!.id,
+        stage: "APPLIED",
+        profileSnapshot: JSON.stringify({ skills: [{ skill: "React" }] }),
+      },
+      update: {
+        stage: "APPLIED",
+      },
+    });
 
     // Move to SHORTLISTED
     const updated = await prisma.application.update({

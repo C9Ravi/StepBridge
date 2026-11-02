@@ -282,3 +282,94 @@ export async function importStudentsFromCsv(params: {
 
   return results;
 }
+
+export interface DomainAnalyticsItem {
+  roleId: string;
+  slug: string;
+  title: string;
+  category: string;
+  interestedStudentsCount: number;
+  primaryTargetCount: number;
+  secondaryInterestCount: number;
+  averageReadinessScore: number;
+  topSkillGaps: Array<{ skillName: string; averageGap: number }>;
+}
+
+export async function getCollegeDomainAnalytics(institutionId: string): Promise<DomainAnalyticsItem[]> {
+  const roles = await prisma.role.findMany({
+    where: { active: true },
+    include: {
+      skills: { include: { skill: true } },
+      careerGoals: {
+        where: {
+          status: "ACTIVE",
+          studentProfile: { institutionId },
+        },
+        include: {
+          studentProfile: {
+            include: {
+              skills: true,
+              projects: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { title: "asc" },
+  });
+
+  const domainAnalytics: DomainAnalyticsItem[] = [];
+
+  for (const r of roles) {
+    const goals = r.careerGoals;
+    const interestedCount = goals.length;
+    const primaryCount = goals.filter((g) => g.isPrimary).length;
+    const secondaryCount = interestedCount - primaryCount;
+
+    let totalScore = 0;
+    const skillGapTotals = new Map<string, { totalGap: number; count: number }>();
+
+    for (const g of goals) {
+      const student = g.studentProfile;
+      const verifiedCount = student.skills.filter((sk) => sk.verifiedLevel >= 3).length;
+      const score = Math.min(100, Math.round(verifiedCount * 25 + student.projects.length * 25 + (student.completionPercentage || 40) * 0.3));
+      totalScore += score;
+
+      // Accumulate gaps
+      for (const rs of r.skills) {
+        const studentSkill = student.skills.find((sk) => sk.skillId === rs.skillId);
+        const currentLevel = studentSkill ? (studentSkill.verifiedLevel || studentSkill.selfLevel || 0) : 0;
+        const gap = Math.max(0, rs.requiredLevel - currentLevel);
+
+        const current = skillGapTotals.get(rs.skill.canonicalName) || { totalGap: 0, count: 0 };
+        current.totalGap += gap;
+        current.count += 1;
+        skillGapTotals.set(rs.skill.canonicalName, current);
+      }
+    }
+
+    const avgReadiness = interestedCount > 0 ? Math.round(totalScore / interestedCount) : 0;
+    const topGaps = Array.from(skillGapTotals.entries())
+      .map(([skillName, data]) => ({
+        skillName,
+        averageGap: Number((data.totalGap / Math.max(1, data.count)).toFixed(1)),
+      }))
+      .sort((a, b) => b.averageGap - a.averageGap)
+      .slice(0, 3);
+
+    domainAnalytics.push({
+      roleId: r.id,
+      slug: r.slug || r.id,
+      title: r.title,
+      category: r.category,
+      interestedStudentsCount: interestedCount,
+      primaryTargetCount: primaryCount,
+      secondaryInterestCount: secondaryCount,
+      averageReadinessScore: avgReadiness,
+      topSkillGaps: topGaps,
+    });
+  }
+
+  return domainAnalytics;
+}
+

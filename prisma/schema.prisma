@@ -289,18 +289,30 @@ model Certification {
 }
 
 model Role {
-  id          String       @id @default(uuid())
-  title       String       @unique
-  description String
-  category    String       // Engineering, Data & AI, Cloud & Infrastructure, Product
-  active      Boolean      @default(true)
-  createdAt   DateTime     @default(now())
+  id                    String       @id @default(uuid())
+  slug                  String?      @unique
+  title                 String       @unique
+  description           String
+  category              String       // Engineering, Data & AI, Cloud & Infrastructure, Security & QA
+  active                Boolean      @default(true)
+  overview              String?
+  careerOpportunities   String?      // JSON array of career paths / roles
+  coreCsSubjects        String?      // JSON array of relevant CS subjects
+  keyConcepts           String?      // JSON array of domain-specific concepts
+  recommendedTools      String?      // JSON array of tools, frameworks, and platforms
+  portfolioExpectations String?      // Portfolio & GitHub expectations
+  interviewTopics       String?      // JSON array of interview topics
+  projectIdeas          String?      // JSON array of ordered projects (Beginner, Intermediate, Advanced)
+  entryLevelGuidance    String?      // Internship and entry-level advice
+  milestoneOutcomes     String?      // JSON array of measurable outcomes
+  createdAt             DateTime     @default(now())
 
-  skills      RoleSkill[]
-  careerGoals CareerGoal[]
-  roadmaps    Roadmap[]
+  skills                RoleSkill[]
+  careerGoals           CareerGoal[]
+  roadmaps              Roadmap[]
 
   @@index([category])
+  @@index([slug])
 }
 
 model RoleSkill {

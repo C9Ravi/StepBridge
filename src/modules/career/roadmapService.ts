@@ -26,9 +26,11 @@ export const roadmapOutputSchema = z.object({
 
 export type RoadmapOutput = z.infer<typeof roadmapOutputSchema>;
 
+import { DOMAIN_CATALOG } from "./domainCatalog";
+
 /**
- * Deterministic fallback roadmap generator.
- * Produces structured weekly milestones addressing specific gaps.
+ * Deterministic domain-specialized roadmap generator.
+ * Produces authentic, domain-specific milestones and tasks across all 12 technology tracks.
  */
 export function generateDeterministicRoadmap(params: {
   roleTitle: string;
@@ -37,48 +39,61 @@ export function generateDeterministicRoadmap(params: {
   gapSkills: string[];
 }): RoadmapOutput {
   const { roleTitle, horizonWeeks, gapSkills } = params;
-  const milestones: z.infer<typeof roadmapMilestoneSchema>[] = [];
+  const blueprint = DOMAIN_CATALOG.find(
+    (d) => d.title.toLowerCase() === roleTitle.toLowerCase() || d.slug.toLowerCase() === roleTitle.toLowerCase()
+  );
 
-  const targetSkills = gapSkills.length > 0 ? gapSkills : ["React", "TypeScript", "Node.js", "SQL & Databases"];
+  const milestones: z.infer<typeof roadmapMilestoneSchema>[] = [];
+  const targetSkills = gapSkills.length > 0 ? gapSkills : (blueprint?.skills.map((s) => s.skillName) || ["Core Fundamentals"]);
 
   for (let week = 1; week <= horizonWeeks; week++) {
-    const focusSkill = targetSkills[(week - 1) % targetSkills.length] || "Core Fundamentals";
-    
+    const focusSkill = targetSkills[(week - 1) % targetSkills.length] || "Core Engineering";
+    const sampleProject = blueprint?.projects?.[(week - 1) % (blueprint.projects.length || 1)];
+    const csSubject = blueprint?.coreCsSubjects?.[(week - 1) % (blueprint.coreCsSubjects.length || 1)] || "Data Structures & Algorithms";
+    const keyConcept = blueprint?.keyConcepts?.[(week - 1) % (blueprint.keyConcepts.length || 1)] || "System Architecture";
+    const interviewTopic = blueprint?.interviewTopics?.[(week - 1) % (blueprint.interviewTopics.length || 1)] || "Technical Problem Solving";
+
     milestones.push({
       weekNumber: week,
-      title: `Week ${week}: Mastering ${focusSkill} & Practical Engineering`,
+      title: `Week ${week}: ${focusSkill} & ${keyConcept}`,
       tasks: [
         {
-          title: `Deep Dive into ${focusSkill} Concepts & Best Practices`,
+          title: `Master ${focusSkill}: Theoretical Foundation & ${csSubject}`,
           skillName: focusSkill,
-          instructions: `Review canonical documentation, patterns, and architectural trade-offs for ${focusSkill}.`,
+          instructions: `Review canonical documentation, core CS principles of ${csSubject}, and key patterns for ${keyConcept}.`,
           estimatedMinutes: 120,
           resourceCategory: "Official Documentation",
-          completionCriteria: `Summarize key concepts and write a 1-page cheatsheet covering core APIs and lifecycle methods.`,
+          completionCriteria: `Synthesize a 1-page architectural cheatsheet covering ${focusSkill} APIs, lifecycle methods, and operational trade-offs.`,
         },
         {
-          title: `Targeted Problem Solving & Hands-on Exercises`,
+          title: `Technical Interview Prep: ${interviewTopic}`,
           skillName: focusSkill,
-          instructions: `Implement 3 real-world algorithmic or state-management mini-challenges using ${focusSkill}.`,
+          instructions: `Solve 2 technical challenges and articulate architectural responses around: "${interviewTopic}".`,
           estimatedMinutes: 180,
           resourceCategory: "Coding Practice",
-          completionCriteria: `All tests passing locally with clean code and no memory leaks.`,
+          completionCriteria: `Write clean code meeting optimal time/space complexity with zero memory leaks.`,
         },
         {
-          title: `Integrate ${focusSkill} into a Portfolio Project Module`,
+          title: sampleProject
+            ? `Hands-on Project: ${sampleProject.title}`
+            : `Integrate ${focusSkill} into Portfolio Repository`,
           skillName: focusSkill,
-          instructions: `Build and deploy an observable feature utilizing ${focusSkill} with proper error handling and logging.`,
+          instructions: sampleProject
+            ? `${sampleProject.description} Technologies: ${sampleProject.technologies.join(", ")}.`
+            : `Build an observable, production-ready module utilizing ${focusSkill} with automated unit tests and error handling.`,
           estimatedMinutes: 240,
           resourceCategory: "Project Implementation",
-          completionCriteria: `Commit code to GitHub with descriptive README and deploy live demo.`,
+          completionCriteria: sampleProject
+            ? `Deliverables: ${sampleProject.deliverables.join("; ")}.`
+            : `Commit code to GitHub with descriptive README, setup script, and architecture diagram.`,
         },
       ],
     });
   }
 
   return {
-    title: `${horizonWeeks}-Week Actionable Preparation Plan for ${roleTitle}`,
-    overview: `Structured milestone roadmap designed to close evidence gaps across ${targetSkills.join(", ")} within ${horizonWeeks} weeks (${params.weeklyHours} hrs/week).`,
+    title: `${horizonWeeks}-Week Actionable Career Roadmap for ${roleTitle}`,
+    overview: `Domain-specialized learning plan calibrated to close skill gaps in ${targetSkills.slice(0, 4).join(", ")} within ${horizonWeeks} weeks (${params.weeklyHours} hrs/week). Covers core CS subjects, hands-on portfolio projects, and technical interview questions.`,
     milestones,
   };
 }

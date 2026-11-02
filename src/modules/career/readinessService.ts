@@ -18,6 +18,12 @@ export interface ReadinessResult {
   overallScore: number; // 0-100
   confidence: "HIGH" | "MEDIUM" | "LOW";
   coveragePercentage: number;
+  skillsCompleted: number;
+  skillsRemaining: number;
+  roadmapCompletionPercentage: number;
+  assessmentScore: number;
+  projectCount: number;
+  interviewReadiness: number;
   componentScores: {
     verifiedAssessmentScore: number;
     projectEvidenceScore: number;
@@ -29,12 +35,16 @@ export interface ReadinessResult {
   generatedAt: string;
 }
 
-export async function calculateStudentReadiness(studentProfileId: string): Promise<ReadinessResult | null> {
+export async function calculateStudentReadiness(
+  studentProfileId: string,
+  roleIdOrSlug?: string
+): Promise<ReadinessResult | null> {
+  // 1. Fetch student profile and career goals
   const profile = await prisma.studentProfile.findUnique({
     where: { id: studentProfileId },
     include: {
       careerGoals: {
-        where: { isPrimary: true, status: "ACTIVE" },
+        where: { status: "ACTIVE" },
         include: {
           role: {
             include: {
@@ -53,15 +63,57 @@ export async function calculateStudentReadiness(studentProfileId: string): Promi
         where: { status: "SUBMITTED" },
         include: { results: true },
       },
+      roadmaps: {
+        where: { status: "ACTIVE" },
+        include: {
+          milestones: {
+            include: { tasks: true },
+          },
+        },
+      },
     },
   });
 
-  if (!profile || profile.careerGoals.length === 0) {
+  if (!profile) return null;
+
+  // 2. Resolve target role
+  let targetRole = null;
+
+  if (roleIdOrSlug) {
+    const normalized = roleIdOrSlug.toLowerCase();
+    targetRole = await prisma.role.findFirst({
+      where: {
+        OR: [
+          { id: roleIdOrSlug },
+          { slug: roleIdOrSlug },
+          { title: { contains: roleIdOrSlug } },
+          ...(normalized.endsWith("-engineer")
+            ? [{ slug: normalized.replace(/-engineer$/, "") }]
+            : []),
+          ...(normalized === "forward-deployed-engineer" ? [{ slug: "fde" }] : []),
+          ...(normalized === "fde" ? [{ slug: "forward-deployed-engineer" }] : []),
+        ],
+        active: true,
+      },
+      include: {
+        skills: {
+          include: { skill: true },
+        },
+      },
+    });
+  } else {
+    // Default to primary active goal, or first active goal
+    const primaryGoal = profile.careerGoals.find((g) => g.isPrimary) || profile.careerGoals[0];
+    if (primaryGoal) {
+      targetRole = primaryGoal.role;
+    }
+  }
+
+  if (!targetRole) {
     return null;
   }
 
-  const primaryGoal = profile.careerGoals[0];
-  const role = primaryGoal.role;
+  const role = targetRole;
   const roleSkills = role.skills;
 
   const studentSkillMap = new Map(profile.skills.map((s) => [s.skillId, s]));
@@ -134,12 +186,45 @@ export async function calculateStudentReadiness(studentProfileId: string): Promi
     });
   }
 
+  // Calculate real domain metrics
+  const skillsCompleted = skillGaps.filter((g) => g.gapSize === 0).length;
+  const skillsRemaining = skillGaps.filter((g) => g.gapSize > 0).length;
+
+  // Active roadmap for this role
+  const roleRoadmap = profile.roadmaps.find((r) => r.roleId === role.id);
+  let totalTasks = 0;
+  let completedTasks = 0;
+  if (roleRoadmap) {
+    for (const m of roleRoadmap.milestones) {
+      for (const t of m.tasks) {
+        totalTasks++;
+        if (t.status === "COMPLETED") completedTasks++;
+      }
+    }
+  }
+  const roadmapCompletionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // Average assessment performance
+  const submittedAttempts = profile.assessmentAttempts.filter((a) => a.score !== null);
+  const avgAssessmentScore =
+    submittedAttempts.length > 0
+      ? Math.round(
+          submittedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / submittedAttempts.length
+        )
+      : 0;
+
   // Calculate component breakdown
   const coveragePercentage = totalWeight > 0 ? Math.round((achievedWeight / totalWeight) * 100) : 0;
   const projectScore = Math.min(100, profile.projects.length * 35);
   const profileScore = profile.completionPercentage || 50;
   const verifiedScore = roleSkills.length > 0 ? Math.round((verifiedCount / roleSkills.length) * 100) : 0;
   const selfScore = profile.skills.length > 0 ? 80 : 20;
+
+  // Interview readiness formula: weighted blend of verified assessments & CS fundamentals
+  const interviewReadiness = Math.min(
+    100,
+    Math.round(verifiedScore * 0.5 + Math.min(100, profile.projects.length * 25) * 0.3 + (coveragePercentage > 50 ? 20 : 10))
+  );
 
   // Weighted overall readiness formula (PRD 12.8, 19.3, ADR OD-08)
   const overallScore = Math.min(
@@ -165,6 +250,12 @@ export async function calculateStudentReadiness(studentProfileId: string): Promi
     overallScore,
     confidence,
     coveragePercentage,
+    skillsCompleted,
+    skillsRemaining,
+    roadmapCompletionPercentage,
+    assessmentScore: avgAssessmentScore,
+    projectCount: profile.projects.length,
+    interviewReadiness,
     componentScores: {
       verifiedAssessmentScore: verifiedScore,
       projectEvidenceScore: projectScore,

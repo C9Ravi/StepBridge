@@ -1,10 +1,11 @@
+import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { assertStudent } from "@/lib/permissions/rbac";
 import { apiSuccess, apiError } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { calculateStudentReadiness } from "@/modules/career/readinessService";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   try {
     assertStudent(session);
@@ -18,10 +19,13 @@ export async function GET() {
   });
   if (!profile) return apiError("Profile not found", "NOT_FOUND", 404);
 
-  const readiness = await calculateStudentReadiness(profile.id);
+  const { searchParams } = new URL(req.url);
+  const roleIdOrSlug = searchParams.get("roleId") || searchParams.get("slug") || undefined;
+
+  const readiness = await calculateStudentReadiness(profile.id, roleIdOrSlug);
   if (!readiness) {
     return apiError(
-      "No primary career goal selected. Please choose a target role first.",
+      "No target career domain selected. Please choose a target track first.",
       "GOAL_NOT_SET",
       400
     );

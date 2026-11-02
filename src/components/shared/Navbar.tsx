@@ -89,6 +89,15 @@ export default function Navbar({ currentRole = "STUDENT", onRoleSwitch }: Navbar
               Student Portal
             </Link>
             <Link
+              href="/student/domains"
+              className="hover:text-[#4F46E5] transition-smooth flex items-center gap-1.5"
+            >
+              <span>Career Domains</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-50 text-[#4F46E5] border border-indigo-200">
+                12 Tracks
+              </span>
+            </Link>
+            <Link
               href="/college"
               className={`hover:text-[#4F46E5] transition-smooth ${
                 currentRole === "COLLEGE_ADMIN" ? "text-[#4F46E5] font-semibold" : ""
