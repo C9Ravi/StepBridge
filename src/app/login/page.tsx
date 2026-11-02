@@ -31,8 +31,8 @@ function LoginForm() {
     {
       role: "STUDENT",
       label: "Student",
-      name: "Aarav Patel",
-      email: "aarav.patel@nitb.ac.in",
+      name: "Ravi Chauhan",
+      email: "ravi.chauhan@jcbust.ac.in",
       pass: "Student2026!",
       icon: GraduationCap,
       color: "border-indigo-200 bg-indigo-50/60 text-indigo-900 hover:bg-indigo-100",
@@ -41,7 +41,7 @@ function LoginForm() {
       role: "COLLEGE_ADMIN",
       label: "College TPO",
       name: "Dr. Ramesh Sharma",
-      email: "tpo@nitb.ac.in",
+      email: "tpo@jcbust.ac.in",
       pass: "CollegeAdmin2026!",
       icon: Building2,
       color: "border-sky-200 bg-sky-50/60 text-sky-900 hover:bg-sky-100",
@@ -214,7 +214,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="name@nitb.ac.in"
+                    placeholder="name@jcbust.ac.in"
                     className="w-full rounded-lg border border-[#E4E4E7] pl-9 pr-3.5 py-2 text-xs text-[#18181B] placeholder-[#A1A1AA] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] transition-smooth"
                   />
                 </div>

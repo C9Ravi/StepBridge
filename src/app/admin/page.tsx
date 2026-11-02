@@ -71,9 +71,9 @@ export default function SuperAdminWorkspace() {
   // Audit Logs
   const auditLogs = [
     { id: "log1", action: "PUBLISH_DRIVE", actor: "Dr. Ramesh Sharma (College TPO)", resource: "PlacementDrive:TechCorp", timestamp: "Nov 02, 2026 22:45" },
-    { id: "log2", action: "STAGE_CHANGE", actor: "Ananya Deshmukh (Recruiter)", resource: "Application:Aarav Patel -> SHORTLISTED", timestamp: "Nov 02, 2026 22:15" },
-    { id: "log3", action: "TENANT_APPROVED", actor: "Super Admin", resource: "Institution:NIT Bangalore", timestamp: "Nov 01, 2026 14:10" },
-    { id: "log4", action: "USER_REGISTER", actor: "Aarav Patel", resource: "User:Student", timestamp: "Nov 01, 2026 12:00" },
+    { id: "log2", action: "STAGE_CHANGE", actor: "Ananya Deshmukh (Recruiter)", resource: "Application:Ravi Chauhan -> SHORTLISTED", timestamp: "Nov 02, 2026 22:15" },
+    { id: "log3", action: "TENANT_APPROVED", actor: "Super Admin", resource: "Institution:JCBUST, YMCA Faridabad", timestamp: "Nov 01, 2026 14:10" },
+    { id: "log4", action: "USER_REGISTER", actor: "Ravi Chauhan", resource: "User:Student", timestamp: "Nov 01, 2026 12:00" },
   ];
 
   return (

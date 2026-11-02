@@ -56,7 +56,7 @@ export default function CollegeWorkspace() {
 
   // Mocked interactive state based on seed
   const cohortMetrics = {
-    institutionName: "National Institute of Technology, Bangalore",
+    institutionName: "JCBUST, YMCA Faridabad",
     totalStudents: 142,
     readyCount: 58,
     nearingCount: 64,
@@ -66,10 +66,10 @@ export default function CollegeWorkspace() {
   };
 
   const students = [
-    { id: "s1", name: "Aarav Patel", email: "aarav.patel@nitb.ac.in", batch: "B.Tech CSE 2025", cgpa: 8.65, readiness: 78, status: "Ready", goal: "Full Stack Engineer" },
-    { id: "s2", name: "Rohan Verma", email: "rohan.v@nitb.ac.in", batch: "B.Tech CSE 2025", cgpa: 8.40, readiness: 74, status: "Nearing", goal: "Backend Engineer" },
-    { id: "s3", name: "Pooja Hegde", email: "pooja.h@nitb.ac.in", batch: "B.Tech ECE 2026", cgpa: 7.90, readiness: 68, status: "Nearing", goal: "DevOps Engineer" },
-    { id: "s4", name: "Kavya Nair", email: "kavya.n@nitb.ac.in", batch: "B.Tech CSE 2025", cgpa: 7.10, readiness: 45, status: "Needs Prep", goal: "Frontend Engineer" },
+    { id: "s1", name: "Ravi Chauhan", email: "ravi.chauhan@jcbust.ac.in", batch: "B.Tech CSE 2025", cgpa: 8.65, readiness: 78, status: "Ready", goal: "Full Stack Engineer" },
+    { id: "s2", name: "Rohan Verma", email: "rohan.v@jcbust.ac.in", batch: "B.Tech CSE 2025", cgpa: 8.40, readiness: 74, status: "Nearing", goal: "Backend Engineer" },
+    { id: "s3", name: "Pooja Hegde", email: "pooja.h@jcbust.ac.in", batch: "B.Tech ECE 2026", cgpa: 7.90, readiness: 68, status: "Nearing", goal: "DevOps Engineer" },
+    { id: "s4", name: "Kavya Nair", email: "kavya.n@jcbust.ac.in", batch: "B.Tech CSE 2025", cgpa: 7.10, readiness: 45, status: "Needs Prep", goal: "Frontend Engineer" },
   ];
 
   const attentionList = [

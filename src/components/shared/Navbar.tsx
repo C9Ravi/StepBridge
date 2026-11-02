@@ -48,8 +48,8 @@ export default function Navbar({ currentRole = "STUDENT", onRoleSwitch }: Navbar
   ]);
 
   const demoAccounts = [
-    { name: "Aarav Patel", role: "STUDENT", label: "Student (Aarav Patel - NITB)", icon: GraduationCap, path: "/student" },
-    { name: "Dr. Ramesh Sharma", role: "COLLEGE_ADMIN", label: "College TPO (NIT Bangalore)", icon: Building2, path: "/college" },
+    { name: "Ravi Chauhan", role: "STUDENT", label: "Student (Ravi Chauhan - JCBUST)", icon: GraduationCap, path: "/student" },
+    { name: "Dr. Ramesh Sharma", role: "COLLEGE_ADMIN", label: "College TPO (JCBUST, YMCA Faridabad)", icon: Building2, path: "/college" },
     { name: "Ananya Deshmukh", role: "RECRUITER", label: "Recruiter (TechCorp)", icon: Briefcase, path: "/recruiter" },
     { name: "Super Admin", role: "SUPER_ADMIN", label: "Platform Super Admin", icon: ShieldCheck, path: "/admin" },
   ];

@@ -30,9 +30,9 @@ export default function RecruiterWorkspace() {
   const [applicants, setApplicants] = useState([
     {
       id: "a1",
-      name: "Aarav Patel",
-      email: "aarav.patel@nitb.ac.in",
-      institution: "National Institute of Technology, Bangalore",
+      name: "Ravi Chauhan",
+      email: "ravi.chauhan@jcbust.ac.in",
+      institution: "JCBUST, YMCA Faridabad",
       role: "Junior Full Stack Engineer",
       cgpa: 8.65,
       stage: "SHORTLISTED",
@@ -46,8 +46,8 @@ export default function RecruiterWorkspace() {
     {
       id: "a2",
       name: "Rohan Verma",
-      email: "rohan.v@nitb.ac.in",
-      institution: "National Institute of Technology, Bangalore",
+      email: "rohan.v@jcbust.ac.in",
+      institution: "JCBUST, YMCA Faridabad",
       role: "Junior Full Stack Engineer",
       cgpa: 8.40,
       stage: "APPLIED",
@@ -59,8 +59,8 @@ export default function RecruiterWorkspace() {
     {
       id: "a3",
       name: "Sneha Reddy",
-      email: "sneha.r@nitb.ac.in",
-      institution: "National Institute of Technology, Bangalore",
+      email: "sneha.r@jcbust.ac.in",
+      institution: "JCBUST, YMCA Faridabad",
       role: "Junior Full Stack Engineer",
       cgpa: 8.90,
       stage: "INTERVIEW",

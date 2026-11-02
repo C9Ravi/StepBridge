@@ -279,7 +279,7 @@ describe("Expanded Multi-Domain Career Readiness Platform Tests", () => {
     }
   });
 
-  it("preserves Aarav Patel's existing target role and progress without regression", async () => {
+  it("preserves demo student's existing target role and progress without regression", async () => {
     const student = await prisma.studentProfile.findUnique({
       where: { id: studentProfileId },
       include: {

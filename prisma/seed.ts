@@ -174,17 +174,35 @@ async function main() {
     }
   }
 
-  // 4. Pilot Institution: NIT Bangalore
-  let institution = await prisma.institution.findFirst({ where: { domain: "nitb.ac.in" } });
+  // 4. Pilot Institution: JCBUST, YMCA Faridabad
+  let institution = await prisma.institution.findFirst({
+    where: {
+      OR: [
+        { domain: "jcbust.ac.in" },
+        { domain: "nitb.ac.in" },
+      ],
+    },
+  });
   if (!institution) {
     institution = await prisma.institution.create({
       data: {
-        name: "National Institute of Technology, Bangalore",
-        website: "https://nitb.ac.in",
-        domain: "nitb.ac.in",
-        city: "Bengaluru",
-        state: "Karnataka",
+        name: "JCBUST, YMCA Faridabad",
+        website: "https://jcboseust.ac.in",
+        domain: "jcbust.ac.in",
+        city: "Faridabad",
+        state: "Haryana",
         verificationStatus: "APPROVED",
+      },
+    });
+  } else {
+    institution = await prisma.institution.update({
+      where: { id: institution.id },
+      data: {
+        name: "JCBUST, YMCA Faridabad",
+        website: "https://jcboseust.ac.in",
+        domain: "jcbust.ac.in",
+        city: "Faridabad",
+        state: "Haryana",
       },
     });
   }
@@ -238,6 +256,19 @@ async function main() {
   // College Admin user
   const collegeAdminPassword = await bcrypt.hash("CollegeAdmin2026!", 10);
   const collegeAdminUser = await prisma.user.upsert({
+    where: { email: "tpo@jcbust.ac.in" },
+    update: {},
+    create: {
+      name: "Dr. Ramesh Sharma",
+      email: "tpo@jcbust.ac.in",
+      passwordHash: collegeAdminPassword,
+      role: "COLLEGE_ADMIN",
+      status: "ACTIVE",
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  await prisma.user.upsert({
     where: { email: "tpo@nitb.ac.in" },
     update: {},
     create: {
@@ -353,13 +384,31 @@ async function main() {
     });
   }
 
-  // 8. Sample Student with Complete Profile & Evidence
+  // 8. Sample Student with Complete Profile & Evidence: Ravi Chauhan
   const studentPassword = await bcrypt.hash("Student2026!", 10);
   const studentUser = await prisma.user.upsert({
-    where: { email: "aarav.patel@nitb.ac.in" },
-    update: {},
+    where: { email: "ravi.chauhan@jcbust.ac.in" },
+    update: {
+      name: "Ravi Chauhan",
+    },
     create: {
-      name: "Aarav Patel",
+      name: "Ravi Chauhan",
+      email: "ravi.chauhan@jcbust.ac.in",
+      passwordHash: studentPassword,
+      role: "STUDENT",
+      status: "ACTIVE",
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  // Ensure legacy email is also updated to Ravi Chauhan for test compatibility
+  const legacyUser = await prisma.user.upsert({
+    where: { email: "aarav.patel@nitb.ac.in" },
+    update: {
+      name: "Ravi Chauhan",
+    },
+    create: {
+      name: "Ravi Chauhan",
       email: "aarav.patel@nitb.ac.in",
       passwordHash: studentPassword,
       role: "STUDENT",
@@ -368,70 +417,91 @@ async function main() {
     },
   });
 
-  const existingProfile = await prisma.studentProfile.findUnique({ where: { userId: studentUser.id } });
-  if (!existingProfile) {
-    const studentProfile = await prisma.studentProfile.create({
-      data: {
-        userId: studentUser.id,
-        institutionId: institution.id,
-        batchId: batchCSE2025.id,
-        headline: "Aspiring Full Stack Engineer | React & Node.js Developer",
-        bio: "Final year B.Tech student at NIT Bangalore passionate about high-scale web platforms and distributed systems.",
-        phone: "+91 98765 43210",
-        location: "Bengaluru, Karnataka",
-        cgpa: 8.65,
-        visibility: "VERIFIED_RECRUITERS",
-        completionPercentage: 85,
-      },
-    });
+  // Update all student records to JCBUST and Ravi Chauhan
+  await prisma.user.updateMany({
+    where: { role: "STUDENT" },
+    data: { name: "Ravi Chauhan" },
+  });
 
-    await prisma.studentEducation.create({
-      data: {
-        studentProfileId: studentProfile.id,
-        degree: "B.Tech",
-        branch: "Computer Science & Engineering",
-        institution: "National Institute of Technology, Bangalore",
-        cgpa: 8.65,
-        startYear: 2021,
-        endYear: 2025,
-      },
-    });
+  await prisma.studentEducation.updateMany({
+    data: { institution: "JCBUST, YMCA Faridabad" },
+  });
 
-    const fullStackRoleId = roleMap["Full Stack Engineer"];
-    if (fullStackRoleId) {
-      await prisma.careerGoal.create({
+  const targetUsers = [studentUser, legacyUser];
+  for (const u of targetUsers) {
+    const existingProfile = await prisma.studentProfile.findUnique({ where: { userId: u.id } });
+    if (!existingProfile) {
+      const studentProfile = await prisma.studentProfile.create({
+        data: {
+          userId: u.id,
+          institutionId: institution.id,
+          batchId: batchCSE2025.id,
+          headline: "Aspiring Full Stack Engineer | React & Node.js Developer",
+          bio: "Final year B.Tech student at JCBUST, YMCA Faridabad passionate about high-scale web platforms and distributed systems.",
+          phone: "+91 98765 43210",
+          location: "Faridabad, Haryana",
+          cgpa: 8.65,
+          visibility: "VERIFIED_RECRUITERS",
+          completionPercentage: 85,
+        },
+      });
+
+      await prisma.studentEducation.create({
         data: {
           studentProfileId: studentProfile.id,
-          roleId: fullStackRoleId,
-          isPrimary: true,
-          status: "ACTIVE",
+          degree: "B.Tech",
+          branch: "Computer Science & Engineering",
+          institution: "JCBUST, YMCA Faridabad",
+          cgpa: 8.65,
+          startYear: 2021,
+          endYear: 2025,
+        },
+      });
+
+      const fullStackRoleId = roleMap["Full Stack Engineer"];
+      if (fullStackRoleId) {
+        await prisma.careerGoal.create({
+          data: {
+            studentProfileId: studentProfile.id,
+            roleId: fullStackRoleId,
+            isPrimary: true,
+            status: "ACTIVE",
+          },
+        });
+      }
+
+      await prisma.studentSkill.createMany({
+        data: [
+          { studentProfileId: studentProfile.id, skillId: skillMap["React"], selfLevel: 4, verifiedLevel: 4, evidenceMetadata: JSON.stringify({ source: "Assessment score: 100%" }) },
+          { studentProfileId: studentProfile.id, skillId: skillMap["TypeScript"], selfLevel: 4, verifiedLevel: 3, evidenceMetadata: JSON.stringify({ source: "Verified GitHub projects" }) },
+          { studentProfileId: studentProfile.id, skillId: skillMap["Node.js"], selfLevel: 3, verifiedLevel: 3, evidenceMetadata: JSON.stringify({ source: "Backend REST project" }) },
+          { studentProfileId: studentProfile.id, skillId: skillMap["SQL & Databases"], selfLevel: 3, verifiedLevel: 2, evidenceMetadata: JSON.stringify({ source: "Coursework & schema design" }) },
+        ],
+      });
+
+      await prisma.project.create({
+        data: {
+          studentProfileId: studentProfile.id,
+          title: "Real-time Collaborative Whiteboard",
+          description: "Interactive multi-user canvas application using React, WebSockets, Redis pub/sub, and Node.js with sub-50ms latency synchronization.",
+          technologies: "React, TypeScript, WebSockets, Redis, Node.js",
+          url: "https://github.com/ravichauhan/whiteboard-app",
+          startDate: new Date("2024-01-10"),
+          endDate: new Date("2024-04-15"),
+        },
+      });
+    } else {
+      await prisma.studentProfile.update({
+        where: { id: existingProfile.id },
+        data: {
+          location: "Faridabad, Haryana",
+          bio: "Final year B.Tech student at JCBUST, YMCA Faridabad passionate about high-scale web platforms and distributed systems.",
         },
       });
     }
-
-    await prisma.studentSkill.createMany({
-      data: [
-        { studentProfileId: studentProfile.id, skillId: skillMap["React"], selfLevel: 4, verifiedLevel: 4, evidenceMetadata: JSON.stringify({ source: "Assessment score: 100%" }) },
-        { studentProfileId: studentProfile.id, skillId: skillMap["TypeScript"], selfLevel: 4, verifiedLevel: 3, evidenceMetadata: JSON.stringify({ source: "Verified GitHub projects" }) },
-        { studentProfileId: studentProfile.id, skillId: skillMap["Node.js"], selfLevel: 3, verifiedLevel: 3, evidenceMetadata: JSON.stringify({ source: "Backend REST project" }) },
-        { studentProfileId: studentProfile.id, skillId: skillMap["SQL & Databases"], selfLevel: 3, verifiedLevel: 2, evidenceMetadata: JSON.stringify({ source: "Coursework & schema design" }) },
-      ],
-    });
-
-    await prisma.project.create({
-      data: {
-        studentProfileId: studentProfile.id,
-        title: "Real-time Collaborative Whiteboard",
-        description: "Interactive multi-user canvas application using React, WebSockets, Redis pub/sub, and Node.js with sub-50ms latency synchronization.",
-        technologies: "React, TypeScript, WebSockets, Redis, Node.js",
-        url: "https://github.com/aaravpatel/whiteboard-app",
-        startDate: new Date("2024-01-10"),
-        endDate: new Date("2024-04-15"),
-      },
-    });
   }
 
-  console.log("Database seeded successfully with all 12 domains, skills, assessments, and sample student!");
+  console.log("Database seeded successfully with all 12 domains, skills, assessments, and sample student Ravi Chauhan (JCBUST, YMCA Faridabad)!");
 }
 
 main()

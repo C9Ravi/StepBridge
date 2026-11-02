@@ -138,7 +138,7 @@ export default function StudentWorkspace() {
   const [assistantMessages, setAssistantMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
     {
       role: "assistant",
-      text: "Hello Aarav! I'm your StepBridge Career Advisor. I see you're preparing for Full Stack Engineer roles with a 78% readiness score and strong React evidence. How can I guide your preparation today?",
+      text: "Hello Ravi! I'm your StepBridge Career Advisor. I see you're preparing for Full Stack Engineer roles with a 78% readiness score and strong React evidence. How can I guide your preparation today?",
     },
   ]);
   const [inputMsg, setInputMsg] = useState("");
@@ -263,7 +263,7 @@ export default function StudentWorkspace() {
         ...prev,
         {
           role: "assistant",
-          text: `Based on your profile at NIT Bangalore (CGPA 8.65) and your target role of Full Stack Engineer:
+          text: `Based on your profile at JCBUST, YMCA Faridabad (CGPA 8.65) and your target role of Full Stack Engineer:
           
 To close your gap in **System Design and PostgreSQL Indexing**, focus on completing Milestone 2 in your roadmap this week. Also, you qualify for the upcoming TechCorp campus drive since your CGPA exceeds the 7.5 minimum cutoff!`,
         },
@@ -287,18 +287,18 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-start gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#4F46E5] font-bold text-xl border border-indigo-100">
-                AP
+                RC
               </div>
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl font-bold text-[#18181B]">Aarav Patel</h1>
+                  <h1 className="text-xl font-bold text-[#18181B]">Ravi Chauhan</h1>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
                     <ShieldCheck className="h-3 w-3" />
                     Verified Student
                   </span>
                 </div>
                 <p className="text-xs text-[#52525B] mt-0.5">
-                  B.Tech Computer Science (2021–2025) • National Institute of Technology, Bangalore
+                  B.Tech Computer Science (2021–2025) • JCBUST, YMCA Faridabad
                 </p>
                 <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-[#71717A]">
                   <span>CGPA: <strong className="text-[#18181B]">8.65</strong> / 10.0</span>

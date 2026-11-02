@@ -8,7 +8,9 @@ describe("Phase 5: College Operations Tests", () => {
 
   beforeAll(async () => {
     const inst = await prisma.institution.findFirst({
-      where: { domain: "nitb.ac.in" },
+      where: {
+        OR: [{ domain: "jcbust.ac.in" }, { domain: "nitb.ac.in" }],
+      },
     });
     institutionId = inst!.id;
 

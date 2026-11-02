@@ -57,7 +57,7 @@ export default function RegisterPage() {
       };
 
       if (role === "COLLEGE_ADMIN") {
-        payload.institutionName = tenantName || "National Institute of Technology";
+        payload.institutionName = tenantName || "JCBUST, YMCA Faridabad";
         payload.city = city;
       } else if (role === "RECRUITER") {
         payload.companyName = tenantName || "Enterprise Innovations Ltd";
@@ -194,7 +194,7 @@ export default function RegisterPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    placeholder={role === "STUDENT" ? "e.g. Aarav Patel" : "e.g. Dr. Ramesh Sharma"}
+                    placeholder={role === "STUDENT" ? "e.g. Ravi Chauhan" : "e.g. Dr. Ramesh Sharma"}
                     className="w-full rounded-lg border border-[#E4E4E7] pl-9 pr-3.5 py-2 text-xs text-[#18181B] placeholder-[#A1A1AA] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] transition-smooth"
                   />
                 </div>
@@ -217,7 +217,7 @@ export default function RegisterPage() {
                     required
                     placeholder={
                       role === "STUDENT"
-                        ? "student@nitb.ac.in"
+                        ? "student@jcbust.ac.in"
                         : role === "COLLEGE_ADMIN"
                         ? "tpo@institution.ac.in"
                         : "recruiter@company.io"
