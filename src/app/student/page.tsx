@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Navbar from "@/components/shared/Navbar";
+import DashboardFooter from "@/components/shared/DashboardFooter";
 import {
   TrendingUp,
   Target,
@@ -986,6 +987,7 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
           </div>
         )}
       </main>
+      <DashboardFooter />
     </div>
   );
 }

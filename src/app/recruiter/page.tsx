@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Navbar from "@/components/shared/Navbar";
+import DashboardFooter from "@/components/shared/DashboardFooter";
 import {
   Briefcase,
   Users,
@@ -362,6 +363,7 @@ export default function RecruiterWorkspace() {
           </div>
         )}
       </main>
+      <DashboardFooter />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Navbar from "@/components/shared/Navbar";
+import DashboardFooter from "@/components/shared/DashboardFooter";
 import {
   ShieldCheck,
   CheckCircle,
@@ -288,6 +289,7 @@ export default function SuperAdminWorkspace() {
           </div>
         )}
       </main>
+      <DashboardFooter />
     </div>
   );
 }

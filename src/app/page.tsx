@@ -18,6 +18,8 @@ import {
   Compass,
 } from "lucide-react";
 
+import CreatorCredit from "@/components/shared/CreatorCredit";
+
 export default function LandingPage() {
   const [selectedPersona, setSelectedPersona] = useState<"student" | "college" | "recruiter">("student");
 
@@ -239,15 +241,17 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-[#E4E4E7] bg-white py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#71717A]">
-          <div>
-            © 2026 StepBridge.ai. Career-Readiness Intelligence SaaS. All rights reserved.
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#71717A]">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
+            <span>© 2026 StepBridge.ai. Career-Readiness Intelligence SaaS.</span>
+            <span className="hidden sm:inline text-[#E4E4E7]">•</span>
+            <CreatorCredit />
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/student" className="hover:text-[#18181B]">Student Portal</Link>
-            <Link href="/college" className="hover:text-[#18181B]">College Operations</Link>
-            <Link href="/recruiter" className="hover:text-[#18181B]">Recruiter Hub</Link>
-            <Link href="/admin" className="hover:text-[#18181B]">Super Admin</Link>
+            <Link href="/student" className="hover:text-[#18181B] transition-colors">Student Portal</Link>
+            <Link href="/college" className="hover:text-[#18181B] transition-colors">College Operations</Link>
+            <Link href="/recruiter" className="hover:text-[#18181B] transition-colors">Recruiter Hub</Link>
+            <Link href="/admin" className="hover:text-[#18181B] transition-colors">Super Admin</Link>
           </div>
         </div>
       </footer>
