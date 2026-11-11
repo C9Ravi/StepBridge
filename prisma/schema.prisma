@@ -14,13 +14,15 @@ model User {
   id               String    @id @default(uuid())
   name             String
   email            String    @unique
-  passwordHash     String
+  passwordHash     String?
+  image            String?
   role             String    // STUDENT, COLLEGE_ADMIN, PLACEMENT_OFFICER, COMPANY_ADMIN, RECRUITER, SUPER_ADMIN
   status           String    @default("ACTIVE") // ACTIVE, PENDING_VERIFICATION, SUSPENDED
   emailVerifiedAt  DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  accounts         Account[]
   sessions         Session[]
   emailTokens      EmailToken[]
   institutionMemberships InstitutionMembership[]
@@ -32,10 +34,42 @@ model User {
   aiJobs           AiJob[]
   aiUsageEvents    AiUsageEvent[]
   applicationStageEvents ApplicationStageEvent[]
+  subscriptions    Subscription[]
+  payments         PaymentRecord[]
 
   @@index([email])
   @@index([role])
   @@index([status])
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  type              String   @default("oauth") // oauth, oidc, email, credentials
+  provider          String   // google
+  providerAccountId String   // Google sub
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+  sessionState      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model Session {
@@ -86,6 +120,7 @@ model Institution {
   batches            Batch[]
   studentProfiles    StudentProfile[]
   placementDrives    PlacementDrive[]
+  subscriptions      Subscription[]
 
   @@index([verificationStatus])
 }
@@ -104,6 +139,7 @@ model Company {
 
   memberships        CompanyMembership[]
   opportunities      Opportunity[]
+  subscriptions      Subscription[]
 
   @@index([verificationStatus])
 }
@@ -577,6 +613,7 @@ model Application {
   student         StudentProfile          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   resume          Resume?                 @relation(fields: [resumeId], references: [id], onDelete: SetNull)
   stageEvents     ApplicationStageEvent[]
+  interviews      InterviewSchedule[]
 
   @@unique([opportunityId, studentId])
   @@index([opportunityId])
@@ -597,6 +634,28 @@ model ApplicationStageEvent {
   actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([applicationId])
+}
+
+model InterviewSchedule {
+  id              String      @id @default(uuid())
+  applicationId   String
+  interviewerName String      @default("Hiring Team")
+  roundTitle      String      // e.g. Technical Screening, System Design, HR Discussion
+  scheduledAt     DateTime
+  durationMinutes Int         @default(45)
+  meetingUrl      String?
+  status          String      @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  rating          Int?        // 1-5 scale
+  feedback        String?
+  recommendation  String?     // STRONG_HIRE, HIRE, HOLD, REJECT
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([status])
 }
 
 model PlacementDrive {
@@ -735,4 +794,51 @@ model FeatureFlag {
   enabled    Boolean  @default(false)
   configJson String?
   updatedAt  DateTime @updatedAt
+}
+
+model Subscription {
+  id                 String          @id @default(uuid())
+  userId             String?
+  institutionId      String?
+  companyId          String?
+  planTier           String          // STUDENT_FREE, STUDENT_PREMIUM, COLLEGE_PILOT, COLLEGE_ENTERPRISE, RECRUITER_PRO
+  status             String          @default("ACTIVE") // ACTIVE, PAST_DUE, CANCELLED, EXPIRED
+  billingInterval    String          @default("MONTHLY") // MONTHLY, ANNUALLY, SEMESTER
+  currentPeriodStart DateTime        @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  user               User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution        Institution?    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  company            Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payments           PaymentRecord[]
+
+  @@index([userId])
+  @@index([institutionId])
+  @@index([companyId])
+  @@index([status])
+}
+
+model PaymentRecord {
+  id                 String        @id @default(uuid())
+  subscriptionId     String?
+  userId             String?
+  amount             Float
+  currency           String        @default("INR")
+  status             String        @default("SUCCESS") // PENDING, SUCCESS, FAILED, REFUNDED
+  provider           String        @default("RAZORPAY") // RAZORPAY, STRIPE, MANUAL
+  providerOrderId    String?
+  providerPaymentId  String?
+  receiptUrl         String?
+  failureReason      String?
+  createdAt          DateTime      @default(now())
+
+  subscription       Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user               User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId])
+  @@index([userId])
+  @@index([providerPaymentId])
 }

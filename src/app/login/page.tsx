@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import CreatorCredit from "@/components/shared/CreatorCredit";
 
@@ -21,10 +22,16 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
+  const isLoggedOut = searchParams.get("logged_out") === "true";
+  const oauthError = searchParams.get("error");
+  const oauthMessage = searchParams.get("message");
+  const isVerified = searchParams.get("verified") === "true";
+  const isReset = searchParams.get("reset") === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const demoAccounts = [
@@ -59,7 +66,7 @@ function LoginForm() {
       role: "SUPER_ADMIN",
       label: "Super Admin",
       name: "Platform Admin",
-      email: "admin@stepbridge.ai",
+      email: "admin@stepbridge.in",
       pass: "Admin@StepBridge2026!",
       icon: ShieldCheck,
       color: "border-purple-200 bg-purple-50/60 text-purple-900 hover:bg-purple-100",
@@ -126,12 +133,12 @@ function LoginForm() {
     <div className="min-h-screen bg-[#FAFAF9] flex flex-col justify-between">
       {/* Header Bar */}
       <header className="border-b border-[#E4E4E7] bg-white py-4 px-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4F46E5] text-white shadow-subtle">
+        <Link href="/" className="flex items-center gap-2.5 group" title="Return to Homepage">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4F46E5] text-white shadow-subtle group-hover:bg-[#4338CA] transition-smooth">
             <span className="font-bold text-lg tracking-tight">S</span>
           </div>
-          <span className="text-lg font-bold tracking-tight text-[#18181B]">
-            StepBridge<span className="text-[#4F46E5]">.ai</span>
+          <span className="text-lg font-bold tracking-tight text-[#18181B] group-hover:text-[#4F46E5] transition-smooth">
+            StepBridge<span className="text-[#4F46E5]">.in</span>
           </span>
         </Link>
 
@@ -157,14 +164,91 @@ function LoginForm() {
               </p>
             </div>
 
+            {/* Logout feedback banner */}
+            {isLoggedOut && (
+              <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <span>You have been safely signed out. Thank you for using StepBridge.</span>
+              </div>
+            )}
+
+            {/* Email Verified Banner */}
+            {isVerified && (
+              <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <span>Your email address has been verified! You can now access your account.</span>
+              </div>
+            )}
+
+            {/* Password Reset Success Banner */}
+            {isReset && (
+              <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <span>Password updated successfully! Please log in with your new password.</span>
+              </div>
+            )}
+
+            {/* OAuth Error Alert */}
+            {oauthError && (
+              <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-900 flex items-start gap-2 animate-in fade-in">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                <div className="flex-1">
+                  <div className="font-semibold mb-0.5">Authentication Notice</div>
+                  <div className="text-[11px] leading-relaxed">
+                    {oauthMessage || "Google authentication could not be completed. Please use demo credentials or email login."}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Continue with Google */}
+            <div className="mb-5">
+              <a
+                href={redirectParam ? `/api/auth/google?redirect=${encodeURIComponent(redirectParam)}` : "/api/auth/google"}
+                onClick={() => setGoogleLoading(true)}
+                className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#D4D4D8] bg-white py-2.5 px-4 text-xs font-semibold text-[#18181B] hover:bg-[#F4F4F5] hover:border-[#A1A1AA] transition-smooth shadow-2xs cursor-pointer group"
+              >
+                {googleLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-[#4F46E5]" />
+                ) : (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                )}
+                <span>Continue with Google</span>
+              </a>
+            </div>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="border-t border-[#E4E4E7] w-full" />
+              <span className="bg-white px-3 text-[10px] font-semibold text-[#71717A] uppercase tracking-wider absolute">
+                Or with demo account
+              </span>
+            </div>
+
             {/* Quick 1-Click Demo Logins */}
-            <div className="mb-6 rounded-xl border border-[#E4E4E7] bg-[#FAFAF9] p-4">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#18181B] mb-2.5">
+            <div className="mb-5 rounded-xl border border-[#E4E4E7] bg-[#FAFAF9] p-3.5">
+              <div className="flex items-center justify-between text-xs font-semibold text-[#18181B] mb-2">
                 <span className="flex items-center gap-1.5 text-[#4F46E5]">
                   <Sparkles className="h-3.5 w-3.5" />
                   Quick Demo Access
                 </span>
-                <span className="text-[11px] text-[#71717A] font-normal">Click to test as:</span>
+                <span className="text-[11px] text-[#71717A] font-normal">Click to sign in:</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -188,10 +272,10 @@ function LoginForm() {
               </div>
             </div>
 
-            <div className="relative my-6 flex items-center justify-center">
+            <div className="relative my-4 flex items-center justify-center">
               <div className="border-t border-[#E4E4E7] w-full" />
-              <span className="bg-white px-3 text-[11px] font-semibold text-[#71717A] uppercase tracking-wider absolute">
-                Or with credentials
+              <span className="bg-white px-3 text-[10px] font-semibold text-[#71717A] uppercase tracking-wider absolute">
+                Or with email & password
               </span>
             </div>
 
@@ -269,7 +353,7 @@ function LoginForm() {
 
       {/* Footer */}
       <footer className="border-t border-[#E4E4E7] bg-white py-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#71717A]">
-        <div>© 2026 StepBridge.ai • Career-Readiness Intelligence SaaS</div>
+        <div>© 2026 StepBridge.in • Career-Readiness Intelligence SaaS</div>
         <CreatorCredit />
       </footer>
     </div>

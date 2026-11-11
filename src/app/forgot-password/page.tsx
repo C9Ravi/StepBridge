@@ -43,12 +43,12 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-[#FAFAF9] flex flex-col justify-between">
       {/* Header Bar */}
       <header className="border-b border-[#E4E4E7] bg-white py-4 px-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4F46E5] text-white shadow-subtle">
+        <Link href="/" className="flex items-center gap-2.5 group" title="Return to Homepage">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#4F46E5] text-white shadow-subtle group-hover:bg-[#4338CA] transition-smooth">
             <span className="font-bold text-lg tracking-tight">S</span>
           </div>
-          <span className="text-lg font-bold tracking-tight text-[#18181B]">
-            StepBridge<span className="text-[#4F46E5]">.ai</span>
+          <span className="text-lg font-bold tracking-tight text-[#18181B] group-hover:text-[#4F46E5] transition-smooth">
+            StepBridge<span className="text-[#4F46E5]">.in</span>
           </span>
         </Link>
 
@@ -144,7 +144,7 @@ export default function ForgotPasswordPage() {
 
       {/* Footer */}
       <footer className="border-t border-[#E4E4E7] bg-white py-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#71717A]">
-        <div>© 2026 StepBridge.ai • Career-Readiness Intelligence SaaS</div>
+        <div>© 2026 StepBridge.in • Career-Readiness Intelligence SaaS</div>
         <CreatorCredit />
       </footer>
     </div>

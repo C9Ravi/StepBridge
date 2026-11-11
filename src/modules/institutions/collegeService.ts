@@ -23,6 +23,23 @@ export interface CohortAnalyticsResult {
     completionPercentage: number;
   }[];
   activeDrivesCount: number;
+  placementMetrics: {
+    placedStudentsCount: number;
+    unplacedStudentsCount: number;
+    placementRatePercentage: number;
+    averagePackageLpa: number;
+    highestPackageLpa: number;
+    totalOffersCount: number;
+  };
+  recentOutcomes: Array<{
+    id: string;
+    studentName: string;
+    companyName: string;
+    packageLpa: number;
+    outcome: string;
+    source: string;
+    recordedAt: Date;
+  }>;
 }
 
 export async function getCollegeCohortAnalytics(institutionId: string): Promise<CohortAnalyticsResult> {
@@ -34,6 +51,7 @@ export async function getCollegeCohortAnalytics(institutionId: string): Promise<
       careerGoals: { where: { isPrimary: true }, include: { role: { include: { skills: { include: { skill: true } } } } } },
       projects: true,
       assessmentAttempts: { where: { status: "SUBMITTED" } },
+      placementOutcomes: true,
     },
   });
 
@@ -103,6 +121,28 @@ export async function getCollegeCohortAnalytics(institutionId: string): Promise<
     where: { institutionId, status: "PUBLISHED" },
   });
 
+  // Calculate real placement outcomes
+  const outcomes = await prisma.placementOutcome.findMany({
+    where: { student: { institutionId } },
+    include: {
+      student: { include: { user: { select: { name: true } } } },
+    },
+    orderBy: { recordedAt: "desc" },
+  });
+
+  const uniquePlacedStudentIds = new Set(
+    outcomes.filter((o) => o.outcome === "ACCEPTED" || o.outcome === "OFFERED").map((o) => o.studentId)
+  );
+  const placedCount = uniquePlacedStudentIds.size;
+  const unplacedCount = Math.max(0, totalStudents - placedCount);
+  const placementRate = totalStudents > 0 ? Math.round((placedCount / totalStudents) * 100) : 0;
+
+  const validPackages = outcomes.map((o) => o.packageLpa).filter((p): p is number => typeof p === "number" && p > 0);
+  const avgPackage = validPackages.length > 0
+    ? Number((validPackages.reduce((a, b) => a + b, 0) / validPackages.length).toFixed(1))
+    : 0;
+  const highestPackage = validPackages.length > 0 ? Math.max(...validPackages) : 0;
+
   const skillGapHeatmap = Array.from(skillGapsAccumulator.entries()).map(([skillName, data]) => ({
     skillName,
     category: data.category,
@@ -121,6 +161,23 @@ export async function getCollegeCohortAnalytics(institutionId: string): Promise<
     skillGapHeatmap: skillGapHeatmap.slice(0, 8),
     attentionStudents: attentionStudents.slice(0, 10),
     activeDrivesCount,
+    placementMetrics: {
+      placedStudentsCount: placedCount,
+      unplacedStudentsCount: unplacedCount,
+      placementRatePercentage: placementRate,
+      averagePackageLpa: avgPackage,
+      highestPackageLpa: highestPackage,
+      totalOffersCount: outcomes.length,
+    },
+    recentOutcomes: outcomes.slice(0, 8).map((o) => ({
+      id: o.id,
+      studentName: o.student.user.name,
+      companyName: o.companyName || "Partner Enterprise",
+      packageLpa: o.packageLpa || 0,
+      outcome: o.outcome,
+      source: o.source,
+      recordedAt: o.recordedAt,
+    })),
   };
 }
 
@@ -371,5 +428,94 @@ export async function getCollegeDomainAnalytics(institutionId: string): Promise<
   }
 
   return domainAnalytics;
+}
+
+export async function recordPlacementOutcome(params: {
+  institutionId: string;
+  studentId: string;
+  driveId?: string;
+  companyName: string;
+  packageLpa: number;
+  outcome: "OFFERED" | "ACCEPTED" | "DECLINED";
+  source?: "ON_CAMPUS" | "OFF_CAMPUS";
+}) {
+  const student = await prisma.studentProfile.findFirst({
+    where: { id: params.studentId, institutionId: params.institutionId },
+    include: { user: true },
+  });
+
+  if (!student) {
+    throw new Error("Student not found in this institution");
+  }
+
+  const outcomeRecord = await prisma.$transaction(async (tx) => {
+    const rec = await tx.placementOutcome.create({
+      data: {
+        studentId: params.studentId,
+        driveId: params.driveId || null,
+        companyName: params.companyName,
+        packageLpa: params.packageLpa,
+        outcome: params.outcome,
+        source: params.source || "ON_CAMPUS",
+      },
+    });
+
+    if (params.driveId) {
+      await tx.driveRegistration.updateMany({
+        where: { driveId: params.driveId, studentId: params.studentId },
+        data: { status: params.outcome === "DECLINED" ? "REJECTED" : "OFFERED" },
+      });
+    }
+
+    // In-app notification to the student
+    await tx.notification.create({
+      data: {
+        userId: student.userId,
+        type: "DRIVE_ALERT",
+        title: `Placement Update: ${params.companyName}`,
+        body: `Congratulations! Your placement status at ${params.companyName} has been recorded as ${params.outcome} with a package of ₹${params.packageLpa} LPA.`,
+        actionUrl: "/student",
+      },
+    });
+
+    return rec;
+  });
+
+  return outcomeRecord;
+}
+
+export async function broadcastCollegeNotification(params: {
+  institutionId: string;
+  title: string;
+  body: string;
+  type?: string;
+  actionUrl?: string;
+  batchId?: string;
+  minCgpa?: number;
+}) {
+  const students = await prisma.studentProfile.findMany({
+    where: {
+      institutionId: params.institutionId,
+      ...(params.batchId ? { batchId: params.batchId } : {}),
+      ...(params.minCgpa ? { cgpa: { gte: params.minCgpa } } : {}),
+    },
+    select: { userId: true },
+  });
+
+  const notifications = students.map((s) => ({
+    userId: s.userId,
+    type: params.type || "CAMPUS_ANNOUNCEMENT",
+    title: params.title,
+    body: params.body,
+    actionUrl: params.actionUrl || "/student",
+  }));
+
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({
+      data: notifications,
+    });
+  }
+
+  return { dispatchedCount: notifications.length };
 }
 

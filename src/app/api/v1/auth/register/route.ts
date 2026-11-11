@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { registerSchema } from "@/lib/validation/schemas";
 import { hashPassword, generateCryptoToken, hashToken } from "@/lib/auth/session";
 import { apiSuccess, apiError } from "@/lib/api/response";
-import { sendNotification } from "@/lib/email/service";
+import { sendVerificationEmail, sendNotification } from "@/lib/email/service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,24 +11,46 @@ export async function POST(req: NextRequest) {
     const result = registerSchema.safeParse(body);
 
     if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      const firstErrorMessage =
+        Object.values(fieldErrors).flat()[0] || "Invalid registration information. Please check your inputs.";
       return apiError(
-        "Validation failed",
+        firstErrorMessage,
         "VALIDATION_ERROR",
         422,
-        result.error.flatten().fieldErrors
+        fieldErrors
       );
     }
 
-    const { name, email, password, role, institutionName, companyName } = result.data;
+    const { name, email, password, role, institutionName, companyName, city, location } = result.data;
 
-    // Check unique email
+    // Validate role-specific tenant fields
+    if (role === "COLLEGE_ADMIN" && (!institutionName || institutionName.trim().length < 2)) {
+      return apiError(
+        "Institution name is required for College TPO accounts (minimum 2 characters).",
+        "VALIDATION_ERROR",
+        422,
+        { institutionName: ["Institution name is required"] }
+      );
+    }
+
+    if (role === "RECRUITER" && (!companyName || companyName.trim().length < 2)) {
+      return apiError(
+        "Company name is required for Recruiter accounts (minimum 2 characters).",
+        "VALIDATION_ERROR",
+        422,
+        { companyName: ["Company name is required"] }
+      );
+    }
+
+    // Check unique email (case-insensitive normalized)
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      // PRD 12.1: Duplicate email returns a generic conflict response
-      return apiError("An account with this email address already exists.", "CONFLICT", 409);
+      // PRD 12.1: Duplicate email returns a clear conflict response
+      return apiError("An account with this email address already exists. Please sign in instead.", "CONFLICT", 409);
     }
 
     const passwordHash = await hashPassword(password);
@@ -119,13 +141,16 @@ export async function POST(req: NextRequest) {
       return { user, rawToken };
     });
 
-    // Send email verification notification
+    // Send branded verification email
+    await sendVerificationEmail(newUser.user.email, newUser.user.name, newUser.rawToken);
+
+    // Send in-app notification
     await sendNotification({
       userId: newUser.user.id,
       type: "SYSTEM_ALERT",
-      title: "Verify your StepBridge.ai account",
-      body: `Welcome to StepBridge.ai! Use your verification token: ${newUser.rawToken} to activate your account.`,
-      sendEmail: true,
+      title: "Verify your StepBridge.in account",
+      body: `Welcome to StepBridge.in! Use your verification token: ${newUser.rawToken} to activate your account.`,
+      sendEmail: false, // Already dispatched via sendVerificationEmail
     });
 
     return apiSuccess(

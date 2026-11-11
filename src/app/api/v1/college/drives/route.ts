@@ -57,11 +57,30 @@ export async function POST(req: NextRequest) {
       packageLpa,
       driveDate: new Date(driveDate),
       deadline: new Date(deadline),
-      status: "DRAFT",
-      eligibilityRules: JSON.stringify(eligibilityRules),
+      status: result.data.status || "DRAFT",
+      eligibilityRules: eligibilityRules ? JSON.stringify(eligibilityRules) : null,
       notes,
     },
   });
+
+  // If published immediately, notify college students
+  if (drive.status === "PUBLISHED") {
+    const students = await prisma.studentProfile.findMany({
+      where: { institutionId },
+      select: { userId: true },
+    });
+    for (const s of students) {
+      await prisma.notification.create({
+        data: {
+          userId: s.userId,
+          type: "DRIVE_ANNOUNCEMENT",
+          title: `New Placement Drive: ${companyName}`,
+          body: `${companyName} announced a campus placement drive for '${roleTitle}' (${packageLpa ? "₹" + packageLpa + " LPA" : "Competitive"}). Apply before ${new Date(deadline).toLocaleDateString()}.`,
+          actionUrl: `/college/drives`,
+        },
+      });
+    }
+  }
 
   return apiSuccess({ drive }, 201);
 }

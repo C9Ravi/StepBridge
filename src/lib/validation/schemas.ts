@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-// Password rule: minimum 10 characters, at least 1 number, 1 uppercase, 1 lowercase
+// Password rule: minimum 8 characters, at least 1 number, 1 uppercase, 1 lowercase
 export const passwordSchema = z
   .string()
-  .min(10, "Password must be at least 10 characters")
+  .min(8, "Password must be at least 8 characters")
   .regex(/[0-9]/, "Password must contain at least one number")
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
   .regex(/[a-z]/, "Password must contain at least one lowercase letter");
@@ -22,6 +22,8 @@ export const registerSchema = z.object({
   // Optional tenant details when registering as college or company
   institutionName: z.string().optional(),
   companyName: z.string().optional(),
+  city: z.string().optional(),
+  location: z.string().optional(),
 });
 
 export const loginSchema = z.object({
@@ -66,13 +68,14 @@ export const createDriveSchema = z.object({
   companyName: z.string().min(2).max(100),
   roleTitle: z.string().min(2).max(100),
   packageLpa: z.number().positive().optional(),
-  driveDate: z.string().datetime(),
-  deadline: z.string().datetime(),
+  driveDate: z.string().min(4),
+  deadline: z.string().min(4),
+  status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
   eligibilityRules: z.object({
     minCgpa: z.number().min(0).max(10).optional(),
     allowedBranches: z.array(z.string()).optional(),
     graduationYears: z.array(z.number()).optional(),
-  }),
+  }).optional(),
   notes: z.string().max(1000).optional(),
 });
 
@@ -83,10 +86,10 @@ export const createJobSchema = z.object({
   description: z.string().min(20).max(5000),
   location: z.string().min(2).max(100),
   salaryRange: z.string().max(50).optional(),
-  deadline: z.string().datetime().optional(),
+  deadline: z.string().optional(),
   skills: z.array(
     z.object({
-      skillId: z.string().uuid(),
+      skillId: z.string().min(1),
       requiredLevel: z.number().min(1).max(5),
       importance: z.enum(["REQUIRED", "PREFERRED"]),
     })

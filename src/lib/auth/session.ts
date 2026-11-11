@@ -70,19 +70,46 @@ export async function getSession(): Promise<SessionPayload | null> {
 }
 
 export async function setSessionCookie(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+  } catch {
+    // Safe fallback when invoked in background workers, CLI, or test runners
+  }
 }
 
 export async function clearSessionCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+    });
+    cookieStore.delete(COOKIE_NAME);
+  } catch {
+    // Safe fallback outside request scope
+  }
+}
+
+export async function revokeServerSessions(userId: string) {
+  try {
+    await prisma.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  } catch {
+    // Ignore in case session table is empty
+  }
 }
 
 // Generate random cryptographic single-use hex token

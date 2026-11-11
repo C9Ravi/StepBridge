@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StepBridge.ai — Career-Readiness Intelligence & Campus Placement Platform",
+  title: "StepBridge.in — Career-Readiness Intelligence & Campus Placement Platform",
   description:
     "Bridge the gap between engineering college curriculum and industry hiring with measurable skill evidence, AI-powered roadmaps, and auditable placement operations.",
   keywords: [

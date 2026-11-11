@@ -59,3 +59,31 @@ export async function POST(req: NextRequest) {
     return apiError("Internal server error", "INTERNAL_ERROR", 500);
   }
 }
+
+export async function GET() {
+  const session = await getSession();
+  try {
+    assertStudent(session);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Forbidden";
+    return apiError(msg, "FORBIDDEN", 403);
+  }
+
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId: session!.userId },
+  });
+  if (!profile) return apiError("Profile not found", "NOT_FOUND", 404);
+
+  const resumes = await prisma.resume.findMany({
+    where: { studentProfileId: profile.id },
+    include: {
+      analyses: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return apiSuccess({ resumes });
+}

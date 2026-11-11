@@ -38,6 +38,15 @@ export async function POST(req: NextRequest) {
       return apiError("Your account has been suspended. Please contact support.", "ACCOUNT_SUSPENDED", 403);
     }
 
+    // Check if user is an OAuth-only account
+    if (!user.passwordHash) {
+      return apiError(
+        "This account was created using Google sign-in. Please click 'Continue with Google' to sign in.",
+        "USE_OAUTH_LOGIN",
+        400
+      );
+    }
+
     const isValidPassword = await verifyPassword(password, user.passwordHash);
     if (!isValidPassword) {
       return apiError("Invalid email or password", "UNAUTHORIZED", 401);

@@ -54,7 +54,10 @@ export async function middleware(req: NextRequest) {
     // 3. Role-based authorization enforcement
     // Super Admins can inspect any workspace
     if (session.role === "SUPER_ADMIN") {
-      return NextResponse.next();
+      const res = NextResponse.next();
+      res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.headers.set("Pragma", "no-cache");
+      return res;
     }
 
     if (isStudentRoute && session.role !== "STUDENT") {
@@ -72,6 +75,11 @@ export async function middleware(req: NextRequest) {
     if (isAdminRoute) {
       return NextResponse.redirect(new URL(getRoleHome(session.role), req.url));
     }
+
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.headers.set("Pragma", "no-cache");
+    return res;
   }
 
   return NextResponse.next();

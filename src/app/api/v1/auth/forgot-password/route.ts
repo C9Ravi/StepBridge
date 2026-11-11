@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { forgotPasswordSchema } from "@/lib/validation/schemas";
 import { generateCryptoToken, hashToken } from "@/lib/auth/session";
 import { apiSuccess, apiError } from "@/lib/api/response";
-import { sendNotification } from "@/lib/email/service";
+import { sendPasswordResetEmail, sendNotification } from "@/lib/email/service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,12 +32,15 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Dispatch responsive branded reset email
+      await sendPasswordResetEmail(user.email, user.name, rawToken);
+
       await sendNotification({
         userId: user.id,
         type: "SYSTEM_ALERT",
-        title: "StepBridge.ai Password Reset Request",
+        title: "StepBridge.in Password Reset Request",
         body: `Use this single-use code to reset your password: ${rawToken} (Valid for 30 minutes).`,
-        sendEmail: true,
+        sendEmail: false, // Already sent via sendPasswordResetEmail
       });
 
       if (process.env.NODE_ENV !== "production") {

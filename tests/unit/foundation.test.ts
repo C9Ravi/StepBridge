@@ -33,8 +33,9 @@ describe("Phase 0 Foundation Tests", () => {
   });
 
   it("enforces password complexity schema", () => {
-    // Min 10 chars, uppercase, number
-    expect(passwordSchema.safeParse("short1A!").success).toBe(false);
+    // Min 8 chars, uppercase, lowercase, number
+    expect(passwordSchema.safeParse("shor1A!").success).toBe(false); // 7 chars
+    expect(passwordSchema.safeParse("Short123").success).toBe(true); // 8 chars
     expect(passwordSchema.safeParse("alllowercase1234").success).toBe(false);
     expect(passwordSchema.safeParse("ALLUPPERCASE1234").success).toBe(false);
     expect(passwordSchema.safeParse("ValidPass123!").success).toBe(true);

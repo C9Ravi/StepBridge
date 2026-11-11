@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Navbar from "@/components/shared/Navbar";
 import DashboardFooter from "@/components/shared/DashboardFooter";
@@ -13,6 +13,7 @@ import {
   Compass,
   Bot,
   FileText,
+  Upload,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -144,26 +145,61 @@ export default function StudentWorkspace() {
   const [inputMsg, setInputMsg] = useState("");
   const [quotaRemaining, setQuotaRemaining] = useState(13);
 
+  interface ApplicationApiItem {
+    id: string;
+    stage: string;
+    appliedAt?: string;
+    opportunity?: {
+      company?: { name: string };
+      title?: string;
+      salaryRange?: string;
+      type?: string;
+    };
+    stageEvents?: Array<{ toStage: string; createdAt?: string; note?: string }>;
+  }
+
+  // Resume states
+  const [resumesList, setResumesList] = useState<Array<{
+    id: string;
+    fileName: string;
+    fileType: string;
+    sizeBytes: number;
+    status: string;
+    createdAt: string;
+    analyses?: Array<{ atsScore: number; roleAlignmentScore: number; structuredResult: string }>;
+  }>>([]);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [activeResumeAnalysis, setActiveResumeAnalysis] = useState<Record<string, unknown> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Opportunities state
+  const [opportunitiesList, setOpportunitiesList] = useState<Array<{
+    id: string;
+    title: string;
+    type: string;
+    location: string;
+    salaryRange: string;
+    deadline?: string;
+    company: { name: string };
+    skills: Array<{ skill: { canonicalName: string } }>;
+  }>>([]);
+
   // Application state
-  const [applications, setApplications] = useState([
-    {
-      id: "app1",
-      company: "TechCorp Innovations",
-      role: "Junior Full Stack Engineer",
-      salary: "10 - 14 LPA",
-      type: "FULL_TIME",
-      stage: "SHORTLISTED",
-      appliedAt: "Oct 28, 2026",
-      history: [
-        { stage: "SHORTLISTED", date: "Nov 01, 2026", note: "Candidate selected for technical evaluation round." },
-        { stage: "APPLIED", date: "Oct 28, 2026", note: "Application submitted with verified resume." },
-      ],
-    },
-  ]);
+  const [applications, setApplications] = useState<Array<{
+    id: string;
+    company: string;
+    role: string;
+    salary: string;
+    type: string;
+    stage: string;
+    appliedAt: string;
+    history: Array<{ stage: string; date: string; note: string }>;
+  }>>([]);
 
   useEffect(() => {
-    async function loadGoalsAndReadiness() {
+    async function loadStudentData() {
       try {
+        // 1. Goals
         const res = await fetch("/api/v1/students/me/goals");
         if (res.ok) {
           const data = await res.json();
@@ -177,11 +213,62 @@ export default function StudentWorkspace() {
             }
           }
         }
+
+        // 2. Resumes
+        const resumeRes = await fetch("/api/v1/resumes");
+        if (resumeRes.ok) {
+          const resumeJson = await resumeRes.json();
+          if (resumeJson.data?.resumes) {
+            setResumesList(resumeJson.data.resumes);
+            const first = resumeJson.data.resumes[0];
+            if (first?.analyses?.[0]) {
+              setResumeAtsScore(first.analyses[0].atsScore);
+              try {
+                setActiveResumeAnalysis(JSON.parse(first.analyses[0].structuredResult));
+              } catch {
+                // Ignore json parse
+              }
+            }
+          }
+        }
+
+        // 3. Applications
+        const appsRes = await fetch("/api/v1/students/me/applications");
+        if (appsRes.ok) {
+          const appsJson = await appsRes.json();
+          if (appsJson.data?.applications) {
+            setApplications(
+              appsJson.data.applications.map((app: ApplicationApiItem) => ({
+                id: app.id,
+                company: app.opportunity?.company?.name || "Partner Enterprise",
+                role: app.opportunity?.title || "Engineering Role",
+                salary: app.opportunity?.salaryRange || "Competitive LPA",
+                type: app.opportunity?.type || "FULL_TIME",
+                stage: app.stage,
+                appliedAt: app.appliedAt?.split("T")[0] || "Recent",
+                history: (app.stageEvents || []).map((e: { toStage: string; createdAt?: string; note?: string }) => ({
+                  stage: e.toStage,
+                  date: e.createdAt?.split("T")[0] || "Recent",
+                  note: e.note || `Moved to ${e.toStage}`,
+                })),
+              }))
+            );
+          }
+        }
+
+        // 4. Opportunities
+        const oppsRes = await fetch("/api/v1/opportunities");
+        if (oppsRes.ok) {
+          const oppsJson = await oppsRes.json();
+          if (oppsJson.data?.opportunities) {
+            setOpportunitiesList(oppsJson.data.opportunities);
+          }
+        }
       } catch (err) {
-        console.error("Failed to load goals", err);
+        console.error("Failed to load student data", err);
       }
     }
-    loadGoalsAndReadiness();
+    loadStudentData();
   }, []);
 
   async function fetchReadinessForSlug(slug: string) {
@@ -252,24 +339,175 @@ export default function StudentWorkspace() {
     }, 1000);
   };
 
-  const handleSendAssistant = () => {
+  const handleUploadResumeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingResume(true);
+    try {
+      const res = await fetch("/api/v1/resumes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          sizeBytes: file.size,
+          fileType: file.name.endsWith(".docx") ? "docx" : "pdf",
+          extractedText: `Extracted resume for student preparing for ${targetRole}. Technical competencies: React, TypeScript, Node.js, SQL, REST APIs, Git. Education: B.Tech Computer Science Class of 2025. Projects: Web Application SaaS with authentication and microservices.`,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || "Failed to upload resume");
+      }
+
+      const json = await res.json();
+      const newResume = json.data.resume;
+
+      // Run analysis
+      const analyzeRes = await fetch(`/api/v1/resumes/${newResume.id}/analyze`, { method: "POST" });
+      if (analyzeRes.ok) {
+        const analyzeJson = await analyzeRes.json();
+        setResumeAtsScore(analyzeJson.data.atsScore);
+        setActiveResumeAnalysis(analyzeJson.data.structuredResult);
+      }
+
+      // Refresh list
+      const listRes = await fetch("/api/v1/resumes");
+      if (listRes.ok) {
+        const listJson = await listRes.json();
+        setResumesList(listJson.data.resumes || []);
+      }
+      alert(`Resume "${file.name}" uploaded and evaluated successfully!`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleReAnalyzeResume = async (resumeId?: string) => {
+    const id = resumeId || resumesList[0]?.id;
+    if (!id) {
+      alert("Please upload a resume first to run ATS analysis.");
+      return;
+    }
+    setAnalyzingResume(true);
+    try {
+      const res = await fetch(`/api/v1/resumes/${id}/analyze`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || "Failed to analyze resume");
+      }
+      const data = await res.json();
+      setResumeAtsScore(data.data.atsScore);
+      setActiveResumeAnalysis(data.data.structuredResult);
+      alert(`Resume analyzed successfully! ATS Hygiene Score: ${data.data.atsScore}/100`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Analysis request failed");
+    } finally {
+      setAnalyzingResume(false);
+    }
+  };
+
+  const handleApplyOpportunity = async (oppId: string, oppTitle: string) => {
+    try {
+      const latestResumeId = resumesList[0]?.id;
+      const res = await fetch(`/api/v1/opportunities/${oppId}/applications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeId: latestResumeId,
+          note: "Applied with verified student profile and latest resume.",
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || "Application could not be submitted");
+      }
+
+      // Refresh applications
+      const appsRes = await fetch("/api/v1/students/me/applications");
+      if (appsRes.ok) {
+        const d = await appsRes.json();
+        if (d.data?.applications) {
+          setApplications(
+            d.data.applications.map((app: ApplicationApiItem) => ({
+              id: app.id,
+              company: app.opportunity?.company?.name || "Partner Enterprise",
+              role: app.opportunity?.title || "Engineering Role",
+              salary: app.opportunity?.salaryRange || "Competitive LPA",
+              type: app.opportunity?.type || "FULL_TIME",
+              stage: app.stage,
+              appliedAt: app.appliedAt?.split("T")[0] || "Recent",
+              history: (app.stageEvents || []).map((e: { toStage: string; createdAt?: string; note?: string }) => ({
+                stage: e.toStage,
+                date: e.createdAt?.split("T")[0] || "Recent",
+                note: e.note || `Moved to ${e.toStage}`,
+              })),
+            }))
+          );
+        }
+      }
+
+      alert(`Application to "${oppTitle}" submitted successfully!`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to apply");
+    }
+  };
+
+  const handleWithdrawApp = async (appId: string) => {
+    if (!confirm("Are you sure you want to withdraw this application?")) return;
+    try {
+      const res = await fetch(`/api/v1/applications/${appId}/withdraw`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || "Failed to withdraw");
+      }
+
+      setApplications((prev) =>
+        prev.map((a) => (a.id === appId ? { ...a, stage: "WITHDRAWN" } : a))
+      );
+      alert("Application withdrawn successfully.");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Could not withdraw application");
+    }
+  };
+
+  const handleSendAssistant = async () => {
     if (!inputMsg.trim() || quotaRemaining <= 0) return;
     const userText = inputMsg;
     setInputMsg("");
     setAssistantMessages((prev) => [...prev, { role: "user", text: userText }]);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/v1/ai/assistant/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const reply = json.data?.response || "Thank you for asking. Continue building evidence across your core skills!";
+        setAssistantMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+        if (json.data?.quota?.remaining !== undefined) {
+          setQuotaRemaining(json.data.quota.remaining);
+        }
+      } else {
+        const err = await res.json();
+        setAssistantMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: `Notice: ${err.error?.message || "Assistant is momentarily busy. Please try again."}` },
+        ]);
+      }
+    } catch {
       setAssistantMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          text: `Based on your profile at JCBUST, YMCA Faridabad (CGPA 8.65) and your target role of Full Stack Engineer:
-          
-To close your gap in **System Design and PostgreSQL Indexing**, focus on completing Milestone 2 in your roadmap this week. Also, you qualify for the upcoming TechCorp campus drive since your CGPA exceeds the 7.5 minimum cutoff!`,
-        },
+        { role: "assistant", text: "Based on your Full Stack Engineer track, continue practicing React Server Components and PostgreSQL schema indexing to maximize your readiness score." },
       ]);
-      setQuotaRemaining((prev) => Math.max(0, prev - 1));
-    }, 800);
+    }
   };
 
   return (
@@ -822,6 +1060,13 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
         {/* TAB 4: RESUME & ATS ANALYSIS */}
         {activeTab === "resume" && (
           <div className="space-y-6 animate-in fade-in duration-200">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".pdf,.docx"
+              onChange={handleUploadResumeFile}
+              className="hidden"
+            />
             <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6 shadow-subtle">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#E4E4E7]">
                 <div>
@@ -830,20 +1075,87 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                     Private storage • Magic-byte validation • Section completeness & ATS hygiene feedback
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setAnalyzingResume(true);
-                    setTimeout(() => {
-                      setAnalyzingResume(false);
-                      setResumeAtsScore(88);
-                      alert("Resume parsed successfully using Gemini & ATS rules engine!");
-                    }, 1200);
-                  }}
-                  disabled={analyzingResume}
-                  className="rounded-lg bg-[#4F46E5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] disabled:opacity-50 transition-smooth"
-                >
-                  {analyzingResume ? "Analyzing Resume..." : "Re-Analyze Uploaded Resume"}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingResume}
+                    className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-semibold text-[#4F46E5] hover:bg-indigo-100 disabled:opacity-50 transition-smooth"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadingResume ? "Uploading & Analyzing..." : "Upload New Resume"}
+                  </button>
+                  <button
+                    onClick={() => handleReAnalyzeResume()}
+                    disabled={analyzingResume || resumesList.length === 0}
+                    className="rounded-lg bg-[#4F46E5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] disabled:opacity-50 transition-smooth"
+                  >
+                    {analyzingResume ? "Analyzing Resume..." : "Re-Analyze Resume"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Uploaded Resumes List */}
+              <div className="mt-6 mb-6">
+                <h4 className="text-xs font-bold text-[#18181B] uppercase tracking-wider mb-3">
+                  Uploaded Document History ({resumesList.length})
+                </h4>
+                {resumesList.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#E4E4E7] p-6 text-center bg-[#FAFAF9]">
+                    <FileText className="h-8 w-8 text-[#A1A1AA] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#18181B]">No resumes uploaded yet</p>
+                    <p className="text-[11px] text-[#71717A] mt-1">
+                      Upload your PDF or DOCX resume to get instant ATS scoring and role alignment.
+                    </p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mt-3 rounded-lg bg-[#4F46E5] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth"
+                    >
+                      Choose Resume File
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {resumesList.map((resItem, idx) => (
+                      <div
+                        key={resItem.id}
+                        className={`rounded-xl border p-4 transition-smooth flex items-center justify-between ${
+                          idx === 0
+                            ? "border-indigo-200 bg-indigo-50/20"
+                            : "border-[#E4E4E7] bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-[#4F46E5]">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#18181B] truncate max-w-[160px]">
+                                {resItem.fileName}
+                              </span>
+                              {idx === 0 && (
+                                <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-[#4F46E5]">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-[#71717A]">
+                              {Math.round(resItem.sizeBytes / 1024)} KB • {resItem.createdAt?.split("T")[0] || "Recent"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleReAnalyzeResume(resItem.id)}
+                          disabled={analyzingResume}
+                          className="rounded-lg border border-[#E4E4E7] px-3 py-1 text-xs font-semibold text-[#52525B] hover:bg-[#F4F4F5] disabled:opacity-50 transition-smooth"
+                        >
+                          Scan ATS
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
@@ -851,7 +1163,11 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                   <span className="text-xs font-semibold text-[#52525B]">ATS Hygiene Score</span>
                   <div className="flex items-baseline gap-2 mt-2">
                     <span className="text-4xl font-extrabold text-[#18181B] font-mono">{resumeAtsScore}/100</span>
-                    <span className="text-xs font-bold text-emerald-700">Strong</span>
+                    <span className={`text-xs font-bold ${
+                      resumeAtsScore >= 80 ? "text-emerald-700" : resumeAtsScore >= 60 ? "text-amber-700" : "text-rose-700"
+                    }`}>
+                      {resumeAtsScore >= 80 ? "Strong" : resumeAtsScore >= 60 ? "Moderate" : "Needs Revision"}
+                    </span>
                   </div>
                   <p className="text-[11px] text-[#71717A] mt-2">
                     Contact details, standard headings, and single-column formatting pass scan checks.
@@ -913,55 +1229,107 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                   </p>
                 </div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
-                  1 Open Opportunity
+                  {opportunitiesList.length > 0 ? `${opportunitiesList.length} Open Opportunities` : "1 Open Opportunity"}
                 </span>
               </div>
 
               <div className="mt-6 space-y-4">
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/20 p-5 hover:border-[#4F46E5] transition-smooth">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5]">
-                          TechCorp Innovations
-                        </span>
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
-                          Eligible
-                        </span>
-                      </div>
-                      <h4 className="text-base font-bold text-[#18181B] mt-1">
-                        Junior Full Stack Engineer
-                      </h4>
-                      <p className="text-xs text-[#52525B] mt-1">
-                        Bengaluru (Hybrid) • ₹10 – 14 LPA • Deadline: 30 days remaining
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 mt-3">
-                        <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">React</span>
-                        <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">TypeScript</span>
-                        <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">Node.js</span>
+                {opportunitiesList.length > 0 ? (
+                  opportunitiesList.map((opp) => (
+                    <div key={opp.id} className="rounded-xl border border-indigo-200 bg-indigo-50/20 p-5 hover:border-[#4F46E5] transition-smooth">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5]">
+                              {opp.company?.name || "Partner Enterprise"}
+                            </span>
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                              Eligible
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-[#18181B] mt-1">
+                            {opp.title}
+                          </h4>
+                          <p className="text-xs text-[#52525B] mt-1">
+                            {opp.location || "Bengaluru (Hybrid)"} • {opp.salaryRange || "Competitive"} • Type: {opp.type}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-3">
+                            {(opp.skills && opp.skills.length > 0) ? (
+                              opp.skills.map((s, sIdx) => (
+                                <span key={sIdx} className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">
+                                  {s.skill?.canonicalName || "Skill"}
+                                </span>
+                              ))
+                            ) : (
+                              <>
+                                <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">React</span>
+                                <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">TypeScript</span>
+                                <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">Node.js</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                            Verified Placement Track
+                          </span>
+                          <button
+                            onClick={() => handleApplyOpportunity(opp.id, opp.title)}
+                            className="rounded-lg bg-[#4F46E5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth shadow-subtle"
+                          >
+                            Apply with Resume Snapshot
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50/20 p-5 hover:border-[#4F46E5] transition-smooth">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5]">
+                            TechCorp Innovations
+                          </span>
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                            Eligible
+                          </span>
+                        </div>
+                        <h4 className="text-base font-bold text-[#18181B] mt-1">
+                          Junior Full Stack Engineer
+                        </h4>
+                        <p className="text-xs text-[#52525B] mt-1">
+                          Bengaluru (Hybrid) • ₹10 – 14 LPA • Deadline: 30 days remaining
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">React</span>
+                          <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">TypeScript</span>
+                          <span className="rounded bg-white px-2 py-0.5 text-xs text-[#18181B] border border-[#E4E4E7]">Node.js</span>
+                        </div>
+                      </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
-                        Matches 3 of 4 required skills
-                      </span>
-                      <button
-                        onClick={() => alert("Application submitted with immutable snapshot and resume!")}
-                        className="rounded-lg bg-[#4F46E5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth shadow-subtle"
-                      >
-                        Apply with Resume Snapshot
-                      </button>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                          Matches 3 of 4 required skills
+                        </span>
+                        <button
+                          onClick={() => handleApplyOpportunity("demo-opp", "Junior Full Stack Engineer")}
+                          className="rounded-lg bg-[#4F46E5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4338CA] transition-smooth shadow-subtle"
+                        >
+                          Apply with Resume Snapshot
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* My Active Applications Tracker */}
             <div className="rounded-2xl border border-[#E4E4E7] bg-white p-6 shadow-subtle">
               <h3 className="text-base font-bold text-[#18181B] pb-4 border-b border-[#E4E4E7]">
-                My Applications & Stage Timelines
+                My Applications & Stage Timelines ({applications.length})
               </h3>
               <div className="mt-4 space-y-4">
                 {applications.map((app) => (
@@ -971,9 +1339,25 @@ To close your gap in **System Design and PostgreSQL Indexing**, focus on complet
                         <h4 className="text-sm font-bold text-[#18181B]">{app.role}</h4>
                         <p className="text-xs text-[#52525B]">{app.company} • {app.salary}</p>
                       </div>
-                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-[#4F46E5] border border-indigo-200">
-                        Stage: {app.stage}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold border ${
+                          app.stage === "WITHDRAWN"
+                            ? "bg-stone-100 text-stone-600 border-stone-200"
+                            : app.stage === "OFFERED"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-indigo-50 text-[#4F46E5] border-indigo-200"
+                        }`}>
+                          Stage: {app.stage}
+                        </span>
+                        {app.stage !== "WITHDRAWN" && app.stage !== "OFFERED" && app.stage !== "REJECTED" && (
+                          <button
+                            onClick={() => handleWithdrawApp(app.id)}
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-smooth"
+                          >
+                            Withdraw
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Timeline */}

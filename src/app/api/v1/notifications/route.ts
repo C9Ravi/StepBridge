@@ -23,3 +23,17 @@ export async function GET() {
     notifications,
   });
 }
+
+export async function PATCH() {
+  const session = await getSession();
+  if (!session) {
+    return apiError("Unauthenticated", "UNAUTHENTICATED", 401);
+  }
+
+  await prisma.notification.updateMany({
+    where: { userId: session.userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+
+  return apiSuccess({ success: true, message: "Notifications marked as read" });
+}

@@ -10,8 +10,21 @@ async function main() {
   // 1. Super Admin
   const adminPassword = await bcrypt.hash("Admin@StepBridge2026!", 10);
   await prisma.user.upsert({
+    where: { email: "admin@stepbridge.in" },
+    update: { passwordHash: adminPassword, role: "SUPER_ADMIN", status: "ACTIVE" },
+    create: {
+      name: "Global Platform Administrator",
+      email: "admin@stepbridge.in",
+      passwordHash: adminPassword,
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  await prisma.user.upsert({
     where: { email: "admin@stepbridge.ai" },
-    update: {},
+    update: { passwordHash: adminPassword, role: "SUPER_ADMIN", status: "ACTIVE" },
     create: {
       name: "Global Platform Administrator",
       email: "admin@stepbridge.ai",
@@ -254,10 +267,10 @@ async function main() {
   }
 
   // College Admin user
-  const collegeAdminPassword = await bcrypt.hash("CollegeAdmin2026!", 10);
+  const collegeAdminPassword = await bcrypt.hash("College@StepBridge2026!", 10);
   const collegeAdminUser = await prisma.user.upsert({
     where: { email: "tpo@jcbust.ac.in" },
-    update: {},
+    update: { passwordHash: collegeAdminPassword, role: "COLLEGE_ADMIN", status: "ACTIVE" },
     create: {
       name: "Dr. Ramesh Sharma",
       email: "tpo@jcbust.ac.in",
@@ -270,7 +283,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "tpo@nitb.ac.in" },
-    update: {},
+    update: { passwordHash: collegeAdminPassword, role: "COLLEGE_ADMIN", status: "ACTIVE" },
     create: {
       name: "Dr. Ramesh Sharma",
       email: "tpo@nitb.ac.in",
@@ -308,10 +321,10 @@ async function main() {
     });
   }
 
-  const recruiterPassword = await bcrypt.hash("Recruiter2026!", 10);
+  const recruiterPassword = await bcrypt.hash("Recruiter@StepBridge2026!", 10);
   const recruiterUser = await prisma.user.upsert({
     where: { email: "ananya.recruiter@techcorp-innovations.io" },
-    update: {},
+    update: { passwordHash: recruiterPassword, role: "RECRUITER", status: "ACTIVE" },
     create: {
       name: "Ananya Deshmukh",
       email: "ananya.recruiter@techcorp-innovations.io",
@@ -385,11 +398,14 @@ async function main() {
   }
 
   // 8. Sample Student with Complete Profile & Evidence: Ravi Chauhan
-  const studentPassword = await bcrypt.hash("Student2026!", 10);
+  const studentPassword = await bcrypt.hash("Student@StepBridge2026!", 10);
   const studentUser = await prisma.user.upsert({
     where: { email: "ravi.chauhan@jcbust.ac.in" },
     update: {
       name: "Ravi Chauhan",
+      passwordHash: studentPassword,
+      role: "STUDENT",
+      status: "ACTIVE",
     },
     create: {
       name: "Ravi Chauhan",
@@ -406,6 +422,9 @@ async function main() {
     where: { email: "aarav.patel@nitb.ac.in" },
     update: {
       name: "Ravi Chauhan",
+      passwordHash: studentPassword,
+      role: "STUDENT",
+      status: "ACTIVE",
     },
     create: {
       name: "Ravi Chauhan",
@@ -501,7 +520,194 @@ async function main() {
     }
   }
 
-  console.log("Database seeded successfully with all 12 domains, skills, assessments, and sample student Ravi Chauhan (JCBUST, YMCA Faridabad)!");
+  // 9. Seed Resume and ATS Analysis for Ravi Chauhan
+  const raviProfile = await prisma.studentProfile.findFirst({
+    where: { user: { email: "ravi.chauhan@jcbust.ac.in" } },
+  });
+
+  if (raviProfile) {
+    let raviResume = await prisma.resume.findFirst({
+      where: { studentProfileId: raviProfile.id },
+    });
+    if (!raviResume) {
+      raviResume = await prisma.resume.create({
+        data: {
+          studentProfileId: raviProfile.id,
+          fileName: "Ravi_Chauhan_FullStack_Resume.pdf",
+          storageKey: "resumes/seed_ravi_chauhan.pdf",
+          fileType: "pdf",
+          sizeBytes: 148200,
+          status: "PARSED",
+          extractedText:
+            "Ravi Chauhan | JCBUST YMCA Faridabad | B.Tech CSE 2025 | CGPA 8.65. Technical Skills: React, Next.js, TypeScript, Node.js, PostgreSQL, Prisma, Redis, Docker, Git. Projects: Real-time Whiteboard, StepBridge Career Readiness Platform.",
+        },
+      });
+
+      await prisma.resumeAnalysis.create({
+        data: {
+          resumeId: raviResume.id,
+          targetRoleId: roleMap["Full Stack Engineer"] || null,
+          atsScore: 88,
+          status: "COMPLETED",
+          structuredResult: JSON.stringify({
+            overallAssessment: "Strong candidate for Full Stack Engineer roles with verified React and Node.js capabilities.",
+            atsHygiene: {
+              contactInfo: true,
+              standardHeadings: true,
+              singleColumnFormat: true,
+              actionVerbs: true,
+            },
+            extractedSkills: ["React", "TypeScript", "Node.js", "SQL & Databases", "Git"],
+            missingSkills: ["Redis Caching", "PostgreSQL Query Optimization"],
+            suggestions: [
+              "Explicitly highlight your Redis and WebSocket experience at the top of your Projects section.",
+              "Include latency benchmarks or throughput numbers (e.g. 'sub-50ms message latency').",
+              "Ensure your GitHub repository links are active and include a README architecture overview.",
+            ],
+          }),
+        },
+      });
+    }
+
+    // 10. Seed Application for Ravi to TechCorp
+    if (opportunity1) {
+      const existingApp = await prisma.application.findFirst({
+        where: { opportunityId: opportunity1.id, studentId: raviProfile.id },
+      });
+      if (!existingApp) {
+        const app = await prisma.application.create({
+          data: {
+            opportunityId: opportunity1.id,
+            studentId: raviProfile.id,
+            resumeId: raviResume.id,
+            stage: "INTERVIEW",
+            profileSnapshot: JSON.stringify({
+              name: "Ravi Chauhan",
+              email: "ravi.chauhan@jcbust.ac.in",
+              institution: "JCBUST, YMCA Faridabad",
+              cgpa: 8.65,
+              skills: ["React", "TypeScript", "Node.js", "SQL & Databases"],
+            }),
+          },
+        });
+
+        await prisma.applicationStageEvent.createMany({
+          data: [
+            {
+              applicationId: app.id,
+              fromStage: "APPLIED",
+              toStage: "APPLIED",
+              note: "Application submitted with verified student profile and resume snapshot.",
+            },
+            {
+              applicationId: app.id,
+              fromStage: "APPLIED",
+              toStage: "SHORTLISTED",
+              note: "Candidate profile shortlisted based on 8.65 CGPA and verified React skills.",
+            },
+            {
+              applicationId: app.id,
+              fromStage: "SHORTLISTED",
+              toStage: "INTERVIEW",
+              note: "Round 1 Technical Interview scheduled on Node.js architecture & Event Loop.",
+            },
+          ],
+        });
+
+        await prisma.interviewSchedule.create({
+          data: {
+            applicationId: app.id,
+            interviewerName: "Siddharth Verma (Engineering Lead)",
+            roundTitle: "Node.js Architecture & System Design",
+            scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+            durationMinutes: 45,
+            meetingUrl: "https://meet.google.com/xyz-stepbridge-demo",
+            status: "SCHEDULED",
+            notes: "Candidate has demonstrated solid understanding of non-blocking I/O.",
+          },
+        });
+      }
+    }
+  }
+
+  // 11. Seed SaaS Subscriptions & Payments
+  // Student subscription
+  const existingStudentSub = await prisma.subscription.findFirst({ where: { userId: studentUser.id } });
+  if (!existingStudentSub) {
+    const sub = await prisma.subscription.create({
+      data: {
+        userId: studentUser.id,
+        planTier: "STUDENT_PREMIUM",
+        status: "ACTIVE",
+        billingInterval: "ANNUALLY",
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await prisma.paymentRecord.create({
+      data: {
+        subscriptionId: sub.id,
+        userId: studentUser.id,
+        amount: 2999,
+        currency: "INR",
+        status: "SUCCESS",
+        provider: "RAZORPAY",
+        providerPaymentId: "pay_demo_student_premium_2026",
+      },
+    });
+  }
+
+  // Institution subscription
+  const existingInstSub = await prisma.subscription.findFirst({ where: { institutionId: institution.id } });
+  if (!existingInstSub) {
+    const sub = await prisma.subscription.create({
+      data: {
+        institutionId: institution.id,
+        planTier: "COLLEGE_PILOT",
+        status: "ACTIVE",
+        billingInterval: "ANNUALLY",
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await prisma.paymentRecord.create({
+      data: {
+        subscriptionId: sub.id,
+        amount: 49999,
+        currency: "INR",
+        status: "SUCCESS",
+        provider: "MANUAL",
+        providerPaymentId: "inv_jcbust_pilot_2026",
+      },
+    });
+  }
+
+  // Company subscription
+  const existingCompanySub = await prisma.subscription.findFirst({ where: { companyId: company.id } });
+  if (!existingCompanySub) {
+    const sub = await prisma.subscription.create({
+      data: {
+        companyId: company.id,
+        planTier: "RECRUITER_PRO",
+        status: "ACTIVE",
+        billingInterval: "MONTHLY",
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await prisma.paymentRecord.create({
+      data: {
+        subscriptionId: sub.id,
+        amount: 19999,
+        currency: "INR",
+        status: "SUCCESS",
+        provider: "RAZORPAY",
+        providerPaymentId: "pay_demo_recruiter_pro_2026",
+      },
+    });
+  }
+
+  console.log("Database seeded successfully with all 12 domains, skills, assessments, subscriptions, and sample student Ravi Chauhan (JCBUST, YMCA Faridabad)!");
 }
 
 main()

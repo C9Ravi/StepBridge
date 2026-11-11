@@ -9,6 +9,50 @@ const addNoteSchema = z.object({
   note: z.string().min(1, "Note cannot be empty").max(1000),
 });
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  let companyId: string;
+  try {
+    companyId = assertCompanyRecruiter(session);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Forbidden";
+    return apiError(msg, "FORBIDDEN", 403);
+  }
+
+  const { id: applicationId } = await params;
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: { opportunity: true },
+  });
+
+  if (!application || application.opportunity.companyId !== companyId) {
+    return apiError("Application not found in your company scope", "NOT_FOUND", 404);
+  }
+
+  const events = await prisma.applicationStageEvent.findMany({
+    where: {
+      applicationId,
+      note: { not: null },
+    },
+    include: {
+      actor: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const notes = events.map((e) => ({
+    id: e.id,
+    author: e.actor?.name || "Recruiter",
+    note: e.note,
+    createdAt: e.createdAt,
+  }));
+
+  return apiSuccess({ notes });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -52,12 +96,15 @@ export async function POST(
     },
   });
 
-  return apiSuccess({
-    note: {
-      id: event.id,
-      author: event.actor?.name || "Recruiter",
-      note: event.note,
-      createdAt: event.createdAt,
+  return apiSuccess(
+    {
+      note: {
+        id: event.id,
+        author: event.actor?.name || "Recruiter",
+        note: event.note,
+        createdAt: event.createdAt,
+      },
     },
-  }, 201);
+    201
+  );
 }

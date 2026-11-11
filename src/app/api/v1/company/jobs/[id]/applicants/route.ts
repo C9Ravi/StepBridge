@@ -48,6 +48,9 @@ export async function GET(
           include: { actor: { select: { name: true } } },
           orderBy: { createdAt: "desc" },
         },
+        interviews: {
+          orderBy: { scheduledAt: "desc" },
+        },
       },
       orderBy: { appliedAt: "desc" },
     });
@@ -109,6 +112,7 @@ export async function GET(
           note: e.note,
           createdAt: e.createdAt,
         })),
+        interviews: app.interviews,
         stageHistory: app.stageEvents,
       };
     });
